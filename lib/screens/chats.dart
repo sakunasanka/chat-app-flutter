@@ -1,0 +1,109 @@
+import 'package:flutter/material.dart';
+
+class Chats extends StatefulWidget {
+  const Chats({super.key});
+
+  @override
+  State<Chats> createState() => _ChatsState();
+}
+
+class _ChatsState extends State<Chats> {
+  final List<Map<String, dynamic>> chats = [
+    {
+      'id': '1',
+      'name': 'Alice Smith',
+      'lastMessage': 'Hey, how are you doing?',
+      'timestamp': '10:30 AM',
+      'unread': 2,
+    },
+    {
+      'id': '2',
+      'name': 'Bob Johnson',
+      'lastMessage': 'Can we meet tomorrow?',
+      'timestamp': 'Yesterday',
+      'unread': 3,
+    },
+    {
+      'id': '3',
+      'name': 'Carol Williams',
+      'lastMessage': 'Thanks for the info!',
+      'timestamp': 'Yesterday',
+      'unread': 0,
+    },
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        centerTitle: false,
+        backgroundColor: Colors.transparent,
+        title: const Text(
+          'Chats',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+      body: chatsList(),
+    );
+  }
+
+  Widget chatsList() {
+    final theme = Theme.of(context);
+    return ListView.builder(
+      padding: const EdgeInsets.only(top: 8),
+      itemCount: chats.length,
+      itemBuilder: (context, index) {
+        final chat = chats[index];
+        return Container(
+            margin: const EdgeInsets.symmetric(vertical: 8),
+            decoration: BoxDecoration(
+              border: const Border(
+                bottom: BorderSide(
+                  color: Colors.grey,
+                ),
+                top: BorderSide(
+                  color: Colors.grey,
+                ),
+              ),
+              color: theme.colorScheme.primary.withOpacity(0.2),
+            ),
+            child: ListTile(
+              shape: const RoundedRectangleBorder(),
+              title: Text(
+                chat['name'],
+                style: const TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                  fontSize: 16,
+                ),
+              ),
+              subtitle: Text(chat['lastMessage']),
+              trailing: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(chat['timestamp'], style: const TextStyle(fontSize: 12)),
+                  if (chat['unread'] > 0)
+                    Container(
+                      margin: const EdgeInsets.only(top: 2),
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.secondary,
+                      ),
+                      child: Text(
+                        '${chat['unread']}',
+                        style:
+                            const TextStyle(color: Colors.white, fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
+            ));
+      },
+    );
+  }
+}
