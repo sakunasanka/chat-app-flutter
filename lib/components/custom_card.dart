@@ -6,8 +6,8 @@ class CustomCard extends StatelessWidget {
   final Color bgColor;
   final String title;
   final String subtitle;
-  final String buttonText;
-  final VoidCallback onPressed;
+  final String? buttonText;
+  final VoidCallback? onPressed;
 
   const CustomCard({
     super.key,
@@ -16,8 +16,8 @@ class CustomCard extends StatelessWidget {
     required this.bgColor,
     required this.title,
     required this.subtitle,
-    required this.buttonText,
-    required this.onPressed,
+    this.buttonText,
+    this.onPressed,
   });
 
   @override
@@ -73,28 +73,30 @@ class CustomCard extends StatelessWidget {
                         color: Colors.grey,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: onPressed,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: iconColor,
-                          padding: const EdgeInsets.symmetric(vertical: 14),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                    if (buttonText != null && onPressed != null) ...[
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: onPressed,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: iconColor,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          buttonText,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.white,
-                            fontFamily: 'Poppins',
+                          child: Text(
+                            buttonText!,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              color: Colors.white,
+                              fontFamily: 'Poppins',
+                            ),
                           ),
                         ),
                       ),
-                    ),
+                    ],
                   ],
                 ),
               ),

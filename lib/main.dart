@@ -22,6 +22,7 @@ class MyApp extends StatelessWidget {
       routes: <String, WidgetBuilder>{
         '/home': (context) => const MyHomePage(title: 'QR Chat'),
         '/new_chat': (context) => const NewChat(),
+        '/chats': (context) => const TabsNav(initialIndex: 1),
       },
     );
   }

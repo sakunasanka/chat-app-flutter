@@ -61,7 +61,9 @@ class MyHomePage extends StatelessWidget {
                   subtitle:
                       'Continue your conversations with recent connections',
                   buttonText: 'View Chats',
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/chats');
+                  },
                 ),
               ],
             ),

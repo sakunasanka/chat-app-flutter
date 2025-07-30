@@ -1,9 +1,11 @@
 import 'package:chat_app_flutter/screens/chats.dart';
 import 'package:chat_app_flutter/screens/home_screen.dart';
+import 'package:chat_app_flutter/screens/qr_code.dart';
 import 'package:flutter/material.dart';
 
 class TabsNav extends StatefulWidget {
-  const TabsNav({super.key});
+  final int initialIndex;
+  const TabsNav({super.key, this.initialIndex = 0});
   @override
   State<TabsNav> createState() => _TabsNavState();
 }
@@ -14,8 +16,15 @@ class _TabsNavState extends State<TabsNav> {
   final List<Widget> _pages = <Widget>[
     const MyHomePage(title: 'QR Chat'),
     const Chats(),
-    const Center(child: Text("Scan QR code")),
+    const QRCode(),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedIndex = widget.initialIndex;
+  }
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;

@@ -59,16 +59,9 @@ class _ChatsState extends State<Chats> {
       itemBuilder: (context, index) {
         final chat = chats[index];
         return Container(
-            margin: const EdgeInsets.symmetric(vertical: 8),
+            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
             decoration: BoxDecoration(
-              border: const Border(
-                bottom: BorderSide(
-                  color: Colors.grey,
-                ),
-                top: BorderSide(
-                  color: Colors.grey,
-                ),
-              ),
+              borderRadius: BorderRadius.circular(12),
               color: theme.colorScheme.primary.withOpacity(0.2),
             ),
             child: ListTile(
@@ -88,7 +81,7 @@ class _ChatsState extends State<Chats> {
                   Text(chat['timestamp'], style: const TextStyle(fontSize: 12)),
                   if (chat['unread'] > 0)
                     Container(
-                      margin: const EdgeInsets.only(top: 2),
+                      margin: const EdgeInsets.only(top: 2, left: 50),
                       padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
