@@ -35,20 +35,37 @@ class _ChatsState extends State<Chats> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        centerTitle: false,
         backgroundColor: Colors.transparent,
-        title: const Text(
-          'Chats',
-          style: TextStyle(
-            fontFamily: 'Poppins',
-            fontWeight: FontWeight.w600,
+        appBar: AppBar(
+          centerTitle: false,
+          backgroundColor: Colors.transparent,
+          title: const Text(
+            'Chats',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
-      ),
-      body: chatsList(),
-    );
+        body: Column(
+          children: [
+            Expanded(child: chatsList()),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.only(right: 16.0, bottom: 16.0),
+                child: FloatingActionButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/new_chat');
+                    // Action for adding a new chat
+                  },
+                  child: const Icon(Icons.add),
+                ),
+              ),
+            ),
+            const SizedBox(height: 50),
+          ],
+        ));
   }
 
   Widget chatsList() {
@@ -59,43 +76,50 @@ class _ChatsState extends State<Chats> {
       itemBuilder: (context, index) {
         final chat = chats[index];
         return Container(
-            margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              color: theme.colorScheme.primary.withOpacity(0.2),
-            ),
-            child: ListTile(
-              shape: const RoundedRectangleBorder(),
-              title: Text(
-                chat['name'],
-                style: const TextStyle(
-                  fontFamily: 'Poppins',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
+          margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: theme.colorScheme.primary.withOpacity(0.2),
+          ),
+          child: InkWell(
+              onTap: () {
+                Navigator.pushNamed(context, '/user_chat',
+                    arguments: chat['name']);
+              },
+              child: ListTile(
+                shape: const RoundedRectangleBorder(),
+                title: Text(
+                  chat['name'],
+                  style: const TextStyle(
+                    fontFamily: 'Poppins',
+                    fontWeight: FontWeight.w600,
+                    fontSize: 16,
+                  ),
                 ),
-              ),
-              subtitle: Text(chat['lastMessage']),
-              trailing: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(chat['timestamp'], style: const TextStyle(fontSize: 12)),
-                  if (chat['unread'] > 0)
-                    Container(
-                      margin: const EdgeInsets.only(top: 2, left: 50),
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: theme.colorScheme.secondary,
+                subtitle: Text(chat['lastMessage']),
+                trailing: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(chat['timestamp'],
+                        style: const TextStyle(fontSize: 12)),
+                    if (chat['unread'] > 0)
+                      Container(
+                        margin: const EdgeInsets.only(top: 2, left: 50),
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: theme.colorScheme.secondary,
+                        ),
+                        child: Text(
+                          '${chat['unread']}',
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 12),
+                        ),
                       ),
-                      child: Text(
-                        '${chat['unread']}',
-                        style:
-                            const TextStyle(color: Colors.white, fontSize: 12),
-                      ),
-                    ),
-                ],
-              ),
-            ));
+                  ],
+                ),
+              )),
+        );
       },
     );
   }
