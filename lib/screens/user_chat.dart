@@ -40,6 +40,7 @@ class _UserChatState extends State<UserChat> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(
         centerTitle: false,
         backgroundColor: Colors.transparent,
