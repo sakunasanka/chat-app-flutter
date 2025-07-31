@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class NewChat extends StatefulWidget {
   const NewChat({super.key});
@@ -10,6 +11,7 @@ class NewChat extends StatefulWidget {
 }
 
 class ChatFormState extends State<NewChat> {
+  String? _chatName;
   final _formKey = GlobalKey<FormState>();
 
   @override
@@ -18,7 +20,7 @@ class ChatFormState extends State<NewChat> {
     return Scaffold(
       appBar: AppBar(
         centerTitle: false,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         title: const Text(
           'New Chat',
           style: TextStyle(
@@ -27,7 +29,7 @@ class ChatFormState extends State<NewChat> {
           ),
         ),
       ),
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Form(
@@ -52,6 +54,9 @@ class ChatFormState extends State<NewChat> {
                     borderSide: BorderSide(color: Colors.black45, width: 1.0),
                   ),
                 ),
+                onChanged: (value) {
+                  _chatName = value;
+                },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Please enter a chat name';
@@ -65,9 +70,31 @@ class ChatFormState extends State<NewChat> {
                 child: ElevatedButton(
                   onPressed: () {
                     if (_formKey.currentState!.validate()) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Processing Data')),
-                      );
+                      showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                                backgroundColor: Colors.white,
+                                title: const Text('QR Code'),
+                                content: _chatName != null
+                                    ? SizedBox(
+                                        height: 300,
+                                        width: 300,
+                                        child: QrImageView(
+                                          data: _chatName!,
+                                          version: QrVersions.auto,
+                                          size: 200.0,
+                                        ),
+                                      )
+                                    : const Text('No chat name provided'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () {
+                                      Navigator.of(context).pop();
+                                    },
+                                    child: const Text('Close'),
+                                  ),
+                                ],
+                              ));
                     }
                   },
                   style: ElevatedButton.styleFrom(
