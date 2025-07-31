@@ -10,10 +10,10 @@ class MyHomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         centerTitle: false,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         title: Text(
           title,
           style: const TextStyle(
@@ -28,7 +28,7 @@ class MyHomePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Transform.translate(
-              offset: const Offset(-12, -8),
+              offset: const Offset(-12, 0),
               child: const Text(
                 'Connect instantly with QR codes',
                 style: TextStyle(
