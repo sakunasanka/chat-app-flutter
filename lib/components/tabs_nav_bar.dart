@@ -1,6 +1,6 @@
 import 'package:chat_app_flutter/screens/chats.dart';
 import 'package:chat_app_flutter/screens/home_screen.dart';
-import 'package:chat_app_flutter/screens/qr_code.dart';
+import 'package:chat_app_flutter/screens/qr_connect.dart';
 import 'package:flutter/material.dart';
 
 class TabsNav extends StatefulWidget {
@@ -16,7 +16,7 @@ class _TabsNavState extends State<TabsNav> {
   final List<Widget> _pages = <Widget>[
     const MyHomePage(title: 'QR Chat'),
     const Chats(),
-    const QRCode(),
+    const QRCode()
   ];
 
   @override
@@ -34,7 +34,7 @@ class _TabsNavState extends State<TabsNav> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       body: _pages[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
         backgroundColor: Colors.white,
