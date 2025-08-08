@@ -1,10 +1,38 @@
 import 'package:chat_app_flutter/components/custom_card.dart';
+import 'package:chat_app_flutter/services/crud_services.dart';
 import 'package:flutter/material.dart';
 
 class MyHomePage extends StatelessWidget {
   const MyHomePage({super.key, required this.title});
 
   final String title;
+
+  Future<void> testFirebaseConnection(BuildContext context) async {
+    final crudServices = CrudServices();
+
+    // Test inserting a user
+    bool success = await crudServices.insertUser(
+      userId: 'test_user_${DateTime.now().millisecondsSinceEpoch}',
+      name: 'Test User',
+      email: 'test@example.com',
+    );
+
+    if (success) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('✅ Firebase connection successful! User inserted.'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('❌ Firebase connection failed!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -64,6 +92,29 @@ class MyHomePage extends StatelessWidget {
                   onPressed: () {
                     Navigator.pushNamed(context, '/chats');
                   },
+                ),
+                const SizedBox(height: 40),
+                // Test Firebase Connection Button
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => testFirebaseConnection(context),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Test Firebase Connection',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white,
+                        fontFamily: 'Poppins',
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
