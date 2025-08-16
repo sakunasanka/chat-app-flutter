@@ -39,10 +39,12 @@ class _UserChatState extends State<UserChat> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
         centerTitle: false,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         title: Text(
           chatTitle ?? 'Chat',
           style: const TextStyle(
@@ -88,16 +90,29 @@ class _UserChatState extends State<UserChat> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      border: OutlineInputBorder(),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.primary,
+                          width: 2.0,
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: theme.colorScheme.primary.withOpacity(0.5),
+                          width: 2.0,
+                        ),
+                      ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: _sendMessage,
-                  icon: const Icon(Icons.send),
+                  icon: Icon(Icons.send, color: theme.colorScheme.primary),
                 ),
               ],
             ),

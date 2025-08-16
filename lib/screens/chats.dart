@@ -35,10 +35,10 @@ class _ChatsState extends State<Chats> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         appBar: AppBar(
           centerTitle: false,
-          backgroundColor: Colors.transparent,
+          backgroundColor: Colors.white,
           title: const Text(
             'Chats',
             style: TextStyle(
