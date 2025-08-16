@@ -56,7 +56,7 @@ class MyHomePage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
             Transform.translate(
-              offset: const Offset(-12, 0),
+              offset: const Offset(12, 0),
               child: const Text(
                 'Connect instantly with QR codes',
                 style: TextStyle(
