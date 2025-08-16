@@ -30,8 +30,16 @@ class MyApp extends StatelessWidget {
         '/home': (context) => const MyHomePage(title: 'QR Chat'),
         '/new_chat': (context) => const NewChat(),
         '/chats': (context) => const TabsNav(initialIndex: 1),
-        '/user_chat': (context) => UserChat(
-            title: ModalRoute.of(context)!.settings.arguments as String)
+        '/user_chat': (context) {
+          final arguments = ModalRoute.of(context)!.settings.arguments;
+          if (arguments is Map<String, dynamic>) {
+            return UserChat(title: arguments['title'] as String? ?? '');
+          } else if (arguments is String) {
+            return UserChat(title: arguments);
+          } else {
+            return const UserChat(title: 'Chat');
+          }
+        },
       },
     );
   }
