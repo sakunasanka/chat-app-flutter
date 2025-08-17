@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chat_app_flutter/services/crud_services.dart';
+import 'package:chat_app_flutter/utils/date_utils.dart';
 
 class UserChat extends StatefulWidget {
   final String title;
@@ -41,11 +42,24 @@ class _UserChatState extends State<UserChat> {
     _ensureMyUserId();
   }
 
+  Future<void> _markMessagesAsReadWhenOpened() async {
+    if (!isEphemeral && chatId != null && myUserId != null) {
+      await Future.delayed(const Duration(milliseconds: 500));
+      final crud = CrudServices();
+      await crud.markMessagesAsRead(
+        chatId: chatId!,
+        currentUserId: myUserId!,
+      );
+    }
+  }
+
   Future<void> _ensureMyUserId() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       myUserId = prefs.getString('user_id') ?? 'local_user';
     });
+    // Mark messages as read after getting user ID
+    _markMessagesAsReadWhenOpened();
   }
 
   Future<void> _sendMessage() async {
@@ -92,6 +106,40 @@ class _UserChatState extends State<UserChat> {
     }
     _controller.dispose();
     super.dispose();
+  }
+
+  Widget _buildMessageStatusIcon(Map<String, dynamic> messageData) {
+    final status = messageData['status'] as String? ?? 'sent';
+    final messageId = messageData['id'] as String? ?? 'unknown';
+    
+    print('DEBUG: Message $messageId has status: $status'); // Debug logging
+    
+    switch (status) {
+      case 'sent':
+        return Icon(
+          Icons.access_time,
+          size: 14,
+          color: Colors.white.withOpacity(0.7),
+        );
+      case 'delivered':
+        return Icon(
+          Icons.done,
+          size: 14,
+          color: Colors.white.withOpacity(0.7),
+        );
+      case 'read':
+        return Icon(
+          Icons.done_all,
+          size: 14,
+          color: Colors.blue.withOpacity(0.8), // Blue color for read status
+        );
+      default:
+        return Icon(
+          Icons.access_time,
+          size: 14,
+          color: Colors.white.withOpacity(0.7),
+        );
+    }
   }
 
   @override
@@ -168,36 +216,127 @@ class _UserChatState extends State<UserChat> {
                       itemBuilder: (context, index) {
                         final data = docs[index].data();
                         final isMe = (data['from'] ?? '') == (myUserId ?? '');
-                        return Align(
-                          alignment: isMe
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: ConstrainedBox(
-                            constraints:
-                                BoxConstraints(maxWidth: bubbleMaxWidth),
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isMe
-                                    ? theme.colorScheme.primary
-                                    : Colors.grey[200],
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(16),
-                                  topRight: const Radius.circular(16),
-                                  bottomLeft: Radius.circular(isMe ? 16 : 4),
-                                  bottomRight: Radius.circular(isMe ? 4 : 16),
+                        final currentMessageDate =
+                            data['createdAt'] as String? ?? '';
+                        final previousMessageDate = index > 0
+                            ? docs[index - 1].data()['createdAt'] as String?
+                            : null;
+
+                        final showDateSeparator =
+                            ChatDateUtils.shouldShowDateSeparator(
+                                currentMessageDate, previousMessageDate);
+
+                        return Column(
+                          children: [
+                            // Date separator
+                            if (showDateSeparator &&
+                                currentMessageDate.isNotEmpty)
+                              Container(
+                                margin:
+                                    const EdgeInsets.symmetric(vertical: 16),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[200],
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    ChatDateUtils.formatDateSeparator(
+                                        currentMessageDate),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              child: Text(
-                                (data['text'] ?? '') as String,
-                                style: TextStyle(
-                                  color: isMe ? Colors.white : Colors.black87,
-                                  fontSize: isSmall ? 14 : 15,
+                            // Message bubble
+                            Align(
+                              alignment: isMe
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              child: ConstrainedBox(
+                                constraints:
+                                    BoxConstraints(maxWidth: bubbleMaxWidth),
+                                child: Container(
+                                  margin:
+                                      const EdgeInsets.symmetric(vertical: 2),
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: isMe
+                                        ? theme.colorScheme.primary
+                                        : Colors.grey[200],
+                                    borderRadius: BorderRadius.only(
+                                      topLeft: const Radius.circular(16),
+                                      topRight: const Radius.circular(16),
+                                      bottomLeft:
+                                          Radius.circular(isMe ? 16 : 4),
+                                      bottomRight:
+                                          Radius.circular(isMe ? 4 : 16),
+                                    ),
+                                  ),
+                                  child: IntrinsicWidth(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Message text with flexible layout for timestamp
+                                        ConstrainedBox(
+                                          constraints: BoxConstraints(
+                                            maxWidth: bubbleMaxWidth -
+                                                24, // Account for padding
+                                          ),
+                                          child: Wrap(
+                                            alignment: isMe
+                                                ? WrapAlignment.end
+                                                : WrapAlignment.start,
+                                            crossAxisAlignment:
+                                                WrapCrossAlignment.end,
+                                            children: [
+                                              Text(
+                                                (data['text'] ?? '') as String,
+                                                style: TextStyle(
+                                                  color: isMe
+                                                      ? Colors.white
+                                                      : Colors.black87,
+                                                  fontSize: isSmall ? 14 : 15,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Row(
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    ChatDateUtils
+                                                        .formatMessageTime(
+                                                            currentMessageDate),
+                                                    style: TextStyle(
+                                                      color: isMe
+                                                          ? Colors.white
+                                                              .withOpacity(0.7)
+                                                          : Colors.grey[600],
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                  if (isMe)
+                                                    const SizedBox(width: 4),
+                                                  if (isMe)
+                                                    _buildMessageStatusIcon(data),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
+                          ],
                         );
                       },
                     );

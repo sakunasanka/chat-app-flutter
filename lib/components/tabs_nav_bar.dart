@@ -16,6 +16,8 @@ class TabsNav extends StatefulWidget {
 class _TabsNavState extends State<TabsNav> {
   int _selectedIndex = 0;
   Timer? _notificationTimer;
+  // Track incoming invites we already processed locally to avoid repeat popups
+  final Set<String> _handledIncomingInvites = {};
 
   final List<Widget> _pages = <Widget>[
     const MyHomePage(title: 'QR Chat'),
@@ -62,15 +64,33 @@ class _TabsNavState extends State<TabsNav> {
     final invites = await crud.getPendingInvitesForUser(uid);
 
     for (final invite in invites) {
+      final inviteId = invite['id'] as String? ?? '';
+      if (inviteId.isEmpty) continue;
+      // skip invites we've already handled locally (prevents re-showing while
+      // Firestore updates propagate)
+      if (_handledIncomingInvites.contains(inviteId)) continue;
       if (!mounted) return;
+      // Re-fetch invite to ensure it's still pending (avoid race where
+      // accept/decline already processed remotely but hasn't disappeared from
+      // the pending list due to eventual consistency)
+      final fresh = await crud.getInviteById(inviteId);
+      if (fresh == null) {
+        _handledIncomingInvites.add(inviteId);
+        continue;
+      }
+      final status = fresh['status'] as String? ?? 'pending';
+      if (status != 'pending') {
+        _handledIncomingInvites.add(inviteId);
+        continue;
+      }
       final fromName = invite['fromName'] ?? invite['from'];
       final type = invite['type'] ?? 'instant';
-      final inviteId = invite['id'] as String;
 
       final accept = await showDialog<bool>(
         context: context,
         barrierDismissible: false,
         builder: (c) => AlertDialog(
+          backgroundColor: Colors.white,
           title: Text(
               'Chat request (${type == 'continue' ? 'Continue' : 'Instant'})'),
           content: Text(
@@ -109,8 +129,12 @@ class _TabsNavState extends State<TabsNav> {
             });
           }
         }
+        // mark handled locally so timer won't pop it again immediately
+        _handledIncomingInvites.add(inviteId);
       } else {
         await crud.declineInvite(inviteId);
+        // mark handled locally so timer won't pop it again immediately
+        _handledIncomingInvites.add(inviteId);
       }
     }
   }
