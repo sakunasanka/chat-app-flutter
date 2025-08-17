@@ -15,6 +15,7 @@ class UserChat extends StatefulWidget {
 
 class _UserChatState extends State<UserChat> {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String? chatTitle;
   String? chatId; // persistent chat id
   String? sessionId; // ephemeral session id
@@ -63,6 +64,18 @@ class _UserChatState extends State<UserChat> {
     _markMessagesAsReadWhenOpened();
   }
 
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty) return;
@@ -82,6 +95,8 @@ class _UserChatState extends State<UserChat> {
           text: text,
         );
       }
+      // Scroll to bottom after sending message
+      _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -107,6 +122,7 @@ class _UserChatState extends State<UserChat> {
     }
     _markReadDebounce?.cancel();
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -234,7 +250,22 @@ class _UserChatState extends State<UserChat> {
                         });
                       }
                     }
+
+                    // Auto-scroll to bottom when new messages arrive or when first loading
+                    if (docs.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(
+                            _scrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      });
+                    }
+
                     return ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16),
                       itemCount: docs.length,
                       itemBuilder: (context, index) {

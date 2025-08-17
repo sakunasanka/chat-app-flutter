@@ -868,4 +868,27 @@ class CrudServices {
   //     throw ex;
   //   }
   // }
+
+  // Get total unread chats count (number of chats with unread messages) for a user
+  Future<int> getTotalUnreadMessagesCount(String userId) async {
+    try {
+      final chats = await getUserChatsStream(userId).first;
+      int unreadChatsCount = 0;
+
+      for (final chat in chats) {
+        final unreadValue = chat['unread'] ?? 0;
+        final unreadCount = unreadValue is int
+            ? unreadValue
+            : int.tryParse(unreadValue.toString()) ?? 0;
+        if (unreadCount > 0) {
+          unreadChatsCount++;
+        }
+      }
+
+      return unreadChatsCount;
+    } catch (e) {
+      print('Error getting total unread chats count: $e');
+      return 0;
+    }
+  }
 }
