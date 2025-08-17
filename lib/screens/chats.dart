@@ -212,7 +212,14 @@ class _ChatsState extends State<Chats> {
                                           color: Colors.grey,
                                         ),
                                       ),
-                                      if (chat['unread'] > 0)
+                                      // Ensure unread is treated as an int and > 0
+                                      if (((chat['unread'] ?? 0) is num
+                                              ? (chat['unread'] ?? 0).toInt()
+                                              : int.tryParse(chat['unread']
+                                                          ?.toString() ??
+                                                      '0') ??
+                                                  0) >
+                                          0)
                                         Container(
                                           margin: const EdgeInsets.only(top: 6),
                                           width: badgeSize,
@@ -223,7 +230,7 @@ class _ChatsState extends State<Chats> {
                                             color: Colors.green,
                                           ),
                                           child: Text(
-                                            '${chat['unread']}',
+                                            '${((chat['unread'] ?? 0) is num ? (chat['unread'] ?? 0).toInt() : int.tryParse(chat['unread']?.toString() ?? '0') ?? 0)}',
                                             style: const TextStyle(
                                                 color: Colors.white,
                                                 fontSize: 12,

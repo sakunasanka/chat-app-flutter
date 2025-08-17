@@ -147,6 +147,7 @@ class _TabsNavState extends State<TabsNav> {
       final status = inv['status'];
       final toName = inv['toName'] ?? inv['to'];
       final inviteId = inv['id'] as String;
+      // type is available via inv['type'] if needed in the future
       if (status == 'accepted') {
         final chatId = inv['chatId'];
         final ephemeralId = inv['ephemeralId'];

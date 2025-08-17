@@ -213,14 +213,14 @@ class _QRCodeState extends State<QRCode> {
                                     print(
                                         'DEBUG: instant invite created $inviteId for session $sessionId');
 
-                                    // Open the instant chat screen for the scanner immediately
-                                    Navigator.of(navigatorContext).pushNamed(
-                                      '/user_chat',
-                                      arguments: {
-                                        'title': user['name'] ?? 'Chat',
-                                        'sessionId': sessionId,
-                                        'ephemeral': true,
-                                      },
+                                    // Do not navigate immediately. Inform the sender and wait for receiver to accept.
+                                    if (!mounted) return;
+                                    ScaffoldMessenger.of(navigatorContext)
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Instant chat request sent to ${user['name'] ?? userId}. Waiting for acceptance...'),
+                                      ),
                                     );
                                   } else if (choice == 'request') {
                                     // Keep original invite flow for requesting a persistent chat
