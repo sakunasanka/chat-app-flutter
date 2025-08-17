@@ -157,8 +157,73 @@ class _QRCodeState extends State<QRCode> {
                                     ),
                                   );
 
-                                  if (choice == 'instant' ||
-                                      choice == 'request') {
+                                  if (choice == 'instant') {
+                                    // Create an ephemeral session, create an instant invite
+                                    // that references the ephemeralId so the recipient can
+                                    // accept and reuse the same session, then open chat.
+                                    final crud = CrudServices();
+
+                                    // Get current user info
+                                    String fromId = 'local_user';
+                                    String fromName = '';
+                                    try {
+                                      final prefs =
+                                          await SharedPreferences.getInstance();
+                                      final uid = prefs.getString('user_id');
+                                      final uname =
+                                          prefs.getString('user_name');
+                                      if (uid != null && uid.isNotEmpty)
+                                        fromId = uid;
+                                      if (uname != null) fromName = uname;
+                                    } catch (_) {}
+
+                                    // Create ephemeral session doc first
+                                    final sessionId =
+                                        await crud.createEphemeralSession(
+                                      user1Id: fromId,
+                                      user2Id: userId,
+                                      user1Name: fromName,
+                                      user2Name: user['name'] ?? '',
+                                    );
+
+                                    if (!mounted) return;
+                                    if (sessionId == null) {
+                                      showDialog(
+                                        context: navigatorContext,
+                                        builder: (c) => const AlertDialog(
+                                          title: Text('Error'),
+                                          content: Text(
+                                              'Failed to start instant chat. Please try again.'),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Create invite pointing to the ephemeral session so the
+                                    // recipient accepts into the same session.
+                                    final inviteId =
+                                        await crud.createChatInvite(
+                                      fromId: fromId,
+                                      toId: userId,
+                                      fromName: fromName,
+                                      toName: user['name'] ?? '',
+                                      type: 'instant',
+                                      ephemeralId: sessionId,
+                                    );
+                                    print(
+                                        'DEBUG: instant invite created $inviteId for session $sessionId');
+
+                                    // Open the instant chat screen for the scanner immediately
+                                    Navigator.of(navigatorContext).pushNamed(
+                                      '/user_chat',
+                                      arguments: {
+                                        'title': user['name'] ?? 'Chat',
+                                        'sessionId': sessionId,
+                                        'ephemeral': true,
+                                      },
+                                    );
+                                  } else if (choice == 'request') {
+                                    // Keep original invite flow for requesting a persistent chat
                                     final crud = CrudServices();
 
                                     // Get current user info
@@ -181,9 +246,7 @@ class _QRCodeState extends State<QRCode> {
                                       toId: userId,
                                       fromName: fromName,
                                       toName: user['name'] ?? '',
-                                      type: choice == 'instant'
-                                          ? 'instant'
-                                          : 'continue',
+                                      type: 'continue',
                                     );
 
                                     if (!mounted) return;
@@ -195,7 +258,6 @@ class _QRCodeState extends State<QRCode> {
                                               'Chat request sent to ${user['name'] ?? userId}'),
                                         ),
                                       );
-                                      // Navigation will occur after the other user accepts (handled by Tabs timer)
                                     } else {
                                       showDialog(
                                         context: navigatorContext,

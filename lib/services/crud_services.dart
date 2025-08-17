@@ -27,6 +27,27 @@ class CrudServices {
     }
   }
 
+  // Create an ephemeral session (instant chat)
+  Future<String?> createEphemeralSession({
+    required String user1Id,
+    required String user2Id,
+    String? user1Name,
+    String? user2Name,
+  }) async {
+    try {
+      final now = DateTime.now().toIso8601String();
+      final doc = await service.collection('ephemeral_chats').add({
+        'participants': [user1Id, user2Id],
+        'participantNames': [user1Name ?? '', user2Name ?? ''],
+        'createdAt': now,
+      });
+      return doc.id;
+    } catch (e) {
+      print('Error creating ephemeral session: $e');
+      return null;
+    }
+  }
+
   // Insert a user into 'users' collection with an auto-generated document id.
   // Returns the generated document id on success, or null on failure.
   Future<String?> insertUserAuto({
@@ -97,6 +118,7 @@ class CrudServices {
     required String fromName,
     required String toName,
     required String type, // 'instant' | 'continue'
+    String? ephemeralId,
   }) async {
     assert(type == 'instant' || type == 'continue');
     try {
@@ -112,11 +134,13 @@ class CrudServices {
         'updatedAt': now,
         // when responded
         'chatId': null, // set on accept for 'continue'
-        'ephemeralId': null, // set on accept for 'instant'
+        'ephemeralId': ephemeralId ?? null, // may be pre-created for instant
         // notification flags
         'fromNotified':
             false, // whether requester has been notified of response
       });
+      print(
+          'DEBUG: Created chat_invite ${docRef.id} type=$type ephemeralId=$ephemeralId from=$fromId to=$toId');
       return docRef.id;
     } catch (e) {
       print('Error creating chat invite: $e');
@@ -139,6 +163,18 @@ class CrudServices {
     } catch (e) {
       print('Error getting pending invites: $e');
       return [];
+    }
+  }
+
+  // Fetch a single invite document by id
+  Future<Map<String, dynamic>?> getInviteById(String inviteId) async {
+    try {
+      final snap = await service.collection('chat_invites').doc(inviteId).get();
+      if (!snap.exists) return null;
+      return {'id': snap.id, ...(snap.data() as Map<String, dynamic>)};
+    } catch (e) {
+      print('Error getting invite $inviteId: $e');
+      return null;
     }
   }
 
@@ -205,13 +241,23 @@ class CrudServices {
           user2Name: toName,
         );
       } else {
-        // Create ephemeral session document
-        final doc = await service.collection('ephemeral_chats').add({
-          'participants': [from, to],
-          'participantNames': [fromName, toName],
-          'createdAt': now,
-        });
-        ephemeralId = doc.id;
+        // If an ephemeral session was already attached to the invite, reuse it.
+        if (data['ephemeralId'] != null &&
+            (data['ephemeralId'] as String).isNotEmpty) {
+          ephemeralId = data['ephemeralId'] as String;
+          print(
+              'DEBUG: Reusing ephemeralId from invite $inviteId -> $ephemeralId');
+        } else {
+          // Create ephemeral session document
+          final doc = await service.collection('ephemeral_chats').add({
+            'participants': [from, to],
+            'participantNames': [fromName, toName],
+            'createdAt': now,
+          });
+          ephemeralId = doc.id;
+          print(
+              'DEBUG: Created new ephemeralId $ephemeralId for invite $inviteId');
+        }
       }
 
       await ref.update({
@@ -258,13 +304,97 @@ class CrudServices {
       'text': text,
       'from': fromUserId,
       'createdAt': now,
+      'status': 'sent', // sent, delivered, read
+      'deliveredAt': null,
+      'readAt': null,
     });
     final chatRef = service.collection('chats').doc(chatId);
     batch.update(chatRef, {
       'lastMessage': text,
       'lastUpdated': now,
+      'lastMessageFrom': fromUserId,
     });
     await batch.commit();
+
+    // Mark message as delivered immediately (simulating instant delivery)
+    await Future.delayed(const Duration(milliseconds: 500));
+    await _markMessageAsDelivered(chatId, msgRef.id);
+  }
+
+  // Helper method to mark a message as delivered
+  Future<void> _markMessageAsDelivered(String chatId, String messageId) async {
+    try {
+      await service
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'status': 'delivered',
+        'deliveredAt': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      print('Error marking message as delivered: $e');
+    }
+  }
+
+  // Mark messages as read when user opens the chat
+  Future<void> markMessagesAsRead({
+    required String chatId,
+    required String currentUserId,
+  }) async {
+    try {
+      print(
+          'DEBUG: Marking messages as read for chat $chatId by user $currentUserId'); // Debug
+      final unreadMessages = await service
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('from', isNotEqualTo: currentUserId)
+          .where('status', whereIn: ['sent', 'delivered']).get();
+
+      print(
+          'DEBUG: Found ${unreadMessages.docs.length} unread messages'); // Debug
+
+      final batch = service.batch();
+      final now = DateTime.now().toIso8601String();
+
+      for (final doc in unreadMessages.docs) {
+        batch.update(doc.reference, {
+          'status': 'read',
+          'readAt': now,
+        });
+        print('DEBUG: Marking message ${doc.id} as read'); // Debug
+      }
+
+      if (unreadMessages.docs.isNotEmpty) {
+        await batch.commit();
+        print(
+            'DEBUG: Successfully marked ${unreadMessages.docs.length} messages as read'); // Debug
+      }
+    } catch (e) {
+      print('Error marking messages as read: $e');
+    }
+  }
+
+  // Get unread messages count for a specific chat
+  Future<int> getUnreadMessagesCount({
+    required String chatId,
+    required String currentUserId,
+  }) async {
+    try {
+      final unreadMessages = await service
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('from', isNotEqualTo: currentUserId)
+          .where('status', whereIn: ['sent', 'delivered']).get();
+
+      return unreadMessages.docs.length;
+    } catch (e) {
+      print('Error getting unread messages count: $e');
+      return 0;
+    }
   }
 
   // Send a message to ephemeral session
@@ -282,6 +412,9 @@ class CrudServices {
       'text': text,
       'from': fromUserId,
       'createdAt': now,
+      'status': 'delivered', // Ephemeral messages are immediately delivered
+      'deliveredAt': now,
+      'readAt': null,
     });
   }
 
@@ -498,6 +631,117 @@ class CrudServices {
     } catch (e) {
       print('Error getting user chats: $e');
       return [];
+    }
+  }
+
+  // Stream-based method for real-time chat updates
+  Stream<List<Map<String, dynamic>>> getUserChatsStream(String userId) {
+    return service
+        .collection('chats')
+        .where('participants', arrayContains: userId)
+        .snapshots()
+        .asyncMap((snap) async {
+      print(
+          'DEBUG: getUserChatsStream received ${snap.docs.length} chat documents'); // Debug line
+
+      final chats = snap.docs
+          .map((d) => {'id': d.id, ...(d.data() as Map<String, dynamic>)})
+          .toList();
+
+      // Sort in memory by lastUpdated
+      chats.sort((a, b) {
+        final aTime = a['lastUpdated'] as String? ?? '';
+        final bTime = b['lastUpdated'] as String? ?? '';
+        return bTime.compareTo(aTime); // descending
+      });
+
+      // Collect the "other user" ids for each chat
+      final otherIds = <String>{};
+      for (final c in chats) {
+        final participants = List<String>.from(c['participants'] ?? []);
+        final other = participants.firstWhere(
+          (p) => p != userId,
+          orElse: () => '',
+        );
+        if (other.isNotEmpty) otherIds.add(other);
+      }
+
+      // Resolve names from users collection
+      final usersMap = await getUsersByIds(otherIds.toList());
+
+      // Process chats with user names and unread counts efficiently
+      final List<Map<String, dynamic>> processedChats = [];
+
+      // Get unread counts for all chats in parallel
+      final unreadCountFutures = chats
+          .map((c) => _getUnreadMessagesCountOptimized(
+                chatId: c['id'],
+                currentUserId: userId,
+              ))
+          .toList();
+
+      final unreadCounts = await Future.wait(unreadCountFutures);
+
+      for (int i = 0; i < chats.length; i++) {
+        final c = chats[i];
+        final participants = List<String>.from(c['participants'] ?? []);
+        final participantNames = List.from(c['participantNames'] ?? []);
+        final otherId = participants.firstWhere(
+          (p) => p != userId,
+          orElse: () => '',
+        );
+        String otherName = usersMap[otherId]?['name'] as String? ?? '';
+
+        if (otherName.isEmpty) {
+          // Fallback to stored participantNames if available
+          if (participants.length == participantNames.length) {
+            for (var i = 0; i < participants.length; i++) {
+              if (participants[i] == otherId) {
+                otherName = (participantNames[i] ?? '').toString();
+                break;
+              }
+            }
+          }
+        }
+        if (otherName.isEmpty) otherName = otherId.isEmpty ? 'Chat' : otherId;
+
+        processedChats.add({
+          'id': c['id'],
+          'name': otherName,
+          'lastMessage': c['lastMessage'] ?? '',
+          'timestamp': c['lastUpdated'] ?? '',
+          'unread': unreadCounts[i],
+          'lastMessageFrom': c['lastMessageFrom'] ?? '',
+        });
+      }
+
+      return processedChats;
+    });
+  }
+
+  // Optimized version for concurrent execution
+  Future<int> _getUnreadMessagesCountOptimized({
+    required String chatId,
+    required String currentUserId,
+  }) async {
+    try {
+      final unreadMessages = await service
+          .collection('chats')
+          .doc(chatId)
+          .collection('messages')
+          .where('from', isNotEqualTo: currentUserId)
+          .where('status', whereIn: ['sent', 'delivered'])
+          .count()
+          .get();
+
+      return unreadMessages.count ?? 0;
+    } catch (e) {
+      print('Error getting unread messages count for chat $chatId: $e');
+      // Fallback to the original method
+      return await getUnreadMessagesCount(
+        chatId: chatId,
+        currentUserId: currentUserId,
+      );
     }
   }
 
