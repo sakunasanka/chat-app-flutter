@@ -44,12 +44,12 @@ class _ChatsState extends State<Chats> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.pushNamed(context, '/new_chat');
-        },
-        child: const Icon(Icons.add),
-      ),
+      // floatingActionButton: FloatingActionButton(
+      //   onPressed: () {
+      //     Navigator.pushNamed(context, '/new_chat');
+      //   },
+      //   child: const Icon(Icons.add),
+      // ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final theme = Theme.of(context);

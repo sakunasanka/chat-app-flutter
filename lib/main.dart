@@ -1,6 +1,5 @@
 import 'package:chat_app_flutter/components/tabs_nav_bar.dart';
 import 'package:chat_app_flutter/screens/home_screen.dart';
-import 'package:chat_app_flutter/screens/new_chat.dart';
 import 'package:chat_app_flutter/screens/user_chat.dart';
 import 'package:chat_app_flutter/screens/unread_messages.dart';
 import 'package:flutter/material.dart';
@@ -29,7 +28,6 @@ class MyApp extends StatelessWidget {
       home: const TabsNav(),
       routes: <String, WidgetBuilder>{
         '/home': (context) => const MyHomePage(title: 'QR Chat'),
-        '/new_chat': (context) => const NewChat(),
         '/chats': (context) => const TabsNav(initialIndex: 1),
         '/unread_messages': (context) => const UnreadMessages(),
         '/user_chat': (context) {
