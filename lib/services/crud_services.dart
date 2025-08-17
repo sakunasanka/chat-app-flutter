@@ -346,11 +346,11 @@ class CrudServices {
     try {
       print(
           'DEBUG: Marking messages as read for chat $chatId by user $currentUserId'); // Debug
+      // Query only by status to avoid composite index; filter sender client-side
       final unreadMessages = await service
           .collection('chats')
           .doc(chatId)
           .collection('messages')
-          .where('from', isNotEqualTo: currentUserId)
           .where('status', whereIn: ['sent', 'delivered']).get();
 
       print(
@@ -359,18 +359,34 @@ class CrudServices {
       final batch = service.batch();
       final now = DateTime.now().toIso8601String();
 
+      int toUpdate = 0;
       for (final doc in unreadMessages.docs) {
-        batch.update(doc.reference, {
-          'status': 'read',
-          'readAt': now,
-        });
-        print('DEBUG: Marking message ${doc.id} as read'); // Debug
+        final data = doc.data();
+        final from = (data['from'] as String?) ?? '';
+        final status = (data['status'] as String?) ?? 'sent';
+        if (from != currentUserId &&
+            (status == 'sent' || status == 'delivered')) {
+          batch.update(doc.reference, {
+            'status': 'read',
+            'readAt': now,
+          });
+          toUpdate++;
+          print('DEBUG: Marking message ${doc.id} as read'); // Debug
+        }
       }
 
-      if (unreadMessages.docs.isNotEmpty) {
+      // Touch the parent chat doc to trigger chat list stream recompute without changing lastUpdated
+      final chatRef = service.collection('chats').doc(chatId);
+      batch.update(chatRef, {
+        'unreadRecalcAt': now,
+      });
+
+      if (toUpdate > 0) {
         await batch.commit();
-        print(
-            'DEBUG: Successfully marked ${unreadMessages.docs.length} messages as read'); // Debug
+        print('DEBUG: Successfully marked $toUpdate messages as read'); // Debug
+      } else {
+        // Still commit the parent doc touch to trigger UI refresh
+        await batch.commit();
       }
     } catch (e) {
       print('Error marking messages as read: $e');
@@ -383,14 +399,17 @@ class CrudServices {
     required String currentUserId,
   }) async {
     try {
-      final unreadMessages = await service
+      // Query only by status to avoid composite index; filter sender client-side
+      final snapshot = await service
           .collection('chats')
           .doc(chatId)
           .collection('messages')
-          .where('from', isNotEqualTo: currentUserId)
           .where('status', whereIn: ['sent', 'delivered']).get();
 
-      return unreadMessages.docs.length;
+      final count = snapshot.docs
+          .where((d) => (d.data()['from'] as String?) != currentUserId)
+          .length;
+      return count;
     } catch (e) {
       print('Error getting unread messages count: $e');
       return 0;
@@ -725,16 +744,17 @@ class CrudServices {
     required String currentUserId,
   }) async {
     try {
-      final unreadMessages = await service
+      // Use a single where clause to avoid composite index; filter locally
+      final snapshot = await service
           .collection('chats')
           .doc(chatId)
           .collection('messages')
-          .where('from', isNotEqualTo: currentUserId)
-          .where('status', whereIn: ['sent', 'delivered'])
-          .count()
-          .get();
+          .where('status', whereIn: ['sent', 'delivered']).get();
 
-      return unreadMessages.count ?? 0;
+      final count = snapshot.docs
+          .where((d) => (d.data()['from'] as String?) != currentUserId)
+          .length;
+      return count;
     } catch (e) {
       print('Error getting unread messages count for chat $chatId: $e');
       // Fallback to the original method
@@ -848,4 +868,27 @@ class CrudServices {
   //     throw ex;
   //   }
   // }
+
+  // Get total unread chats count (number of chats with unread messages) for a user
+  Future<int> getTotalUnreadMessagesCount(String userId) async {
+    try {
+      final chats = await getUserChatsStream(userId).first;
+      int unreadChatsCount = 0;
+
+      for (final chat in chats) {
+        final unreadValue = chat['unread'] ?? 0;
+        final unreadCount = unreadValue is int
+            ? unreadValue
+            : int.tryParse(unreadValue.toString()) ?? 0;
+        if (unreadCount > 0) {
+          unreadChatsCount++;
+        }
+      }
+
+      return unreadChatsCount;
+    } catch (e) {
+      print('Error getting total unread chats count: $e');
+      return 0;
+    }
+  }
 }

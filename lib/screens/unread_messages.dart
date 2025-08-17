@@ -3,14 +3,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chat_app_flutter/services/crud_services.dart';
 import 'package:chat_app_flutter/utils/date_utils.dart';
 
-class Chats extends StatefulWidget {
-  const Chats({super.key});
+class UnreadMessages extends StatefulWidget {
+  const UnreadMessages({super.key});
 
   @override
-  State<Chats> createState() => _ChatsState();
+  State<UnreadMessages> createState() => _UnreadMessagesState();
 }
 
-class _ChatsState extends State<Chats> {
+class _UnreadMessagesState extends State<UnreadMessages> {
   String? currentUserId;
   final CrudServices crud = CrudServices();
 
@@ -23,7 +23,6 @@ class _ChatsState extends State<Chats> {
   Future<void> _initCurrentUser() async {
     final prefs = await SharedPreferences.getInstance();
     final uid = prefs.getString('user_id');
-    print('DEBUG: Current user ID: $uid'); // Debug line
     setState(() {
       currentUserId = uid;
     });
@@ -37,19 +36,17 @@ class _ChatsState extends State<Chats> {
         centerTitle: false,
         backgroundColor: Colors.white,
         title: const Text(
-          'Chats',
+          'Unread Messages',
           style: TextStyle(
             fontFamily: 'Poppins',
             fontWeight: FontWeight.w600,
           ),
         ),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
-      // floatingActionButton: FloatingActionButton(
-      //   onPressed: () {
-      //     Navigator.pushNamed(context, '/new_chat');
-      //   },
-      //   child: const Icon(Icons.add),
-      // ),
       body: LayoutBuilder(
         builder: (context, constraints) {
           final theme = Theme.of(context);
@@ -107,23 +104,29 @@ class _ChatsState extends State<Chats> {
                         );
                       }
 
-                      final chats = snapshot.data ?? [];
-                      print(
-                          'DEBUG: Stream provided ${chats.length} chats'); // Debug line
+                      final allChats = snapshot.data ?? [];
+                      // Filter to only show chats with unread messages
+                      final unreadChats = allChats.where((chat) {
+                        final unreadCount = ((chat['unread'] ?? 0) is num
+                            ? (chat['unread'] ?? 0).toInt()
+                            : int.tryParse(chat['unread']?.toString() ?? '0') ??
+                                0);
+                        return unreadCount > 0;
+                      }).toList();
 
-                      if (chats.isEmpty) {
+                      if (unreadChats.isEmpty) {
                         return const Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               Icon(
-                                Icons.chat_bubble_outline,
+                                Icons.mark_email_read,
                                 size: 64,
                                 color: Colors.grey,
                               ),
                               SizedBox(height: 16),
                               Text(
-                                'No chats yet',
+                                'No unread messages',
                                 style: TextStyle(
                                   fontSize: 18,
                                   fontWeight: FontWeight.w600,
@@ -133,7 +136,7 @@ class _ChatsState extends State<Chats> {
                               ),
                               SizedBox(height: 8),
                               Text(
-                                'Start a conversation by scanning a QR code',
+                                'All caught up! You have no unread messages.',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey,
@@ -148,9 +151,15 @@ class _ChatsState extends State<Chats> {
                       return ListView.builder(
                         padding: EdgeInsets.only(
                             top: 8, left: hPad, right: hPad, bottom: 88),
-                        itemCount: chats.length,
+                        itemCount: unreadChats.length,
                         itemBuilder: (context, index) {
-                          final chat = chats[index];
+                          final chat = unreadChats[index];
+                          final unreadCount = ((chat['unread'] ?? 0) is num
+                              ? (chat['unread'] ?? 0).toInt()
+                              : int.tryParse(
+                                      chat['unread']?.toString() ?? '0') ??
+                                  0);
+
                           return Container(
                             margin: const EdgeInsets.symmetric(vertical: 8),
                             decoration: BoxDecoration(
@@ -159,87 +168,80 @@ class _ChatsState extends State<Chats> {
                                   theme.colorScheme.primary.withOpacity(0.08),
                             ),
                             child: InkWell(
-                                onTap: () {
-                                  Navigator.pushNamed(context, '/user_chat',
-                                      arguments: {
-                                        'title': chat['name'],
-                                        'chatId': chat['id'],
-                                      });
-                                },
-                                child: ListTile(
-                                  contentPadding: EdgeInsets.symmetric(
-                                      horizontal: hPad, vertical: 8),
-                                  leading: CircleAvatar(
-                                    backgroundColor: theme.colorScheme.primary
-                                        .withOpacity(0.15),
-                                    child: Text(
-                                      chat['name'].toString().isNotEmpty
-                                          ? chat['name']
-                                              .toString()
-                                              .substring(0, 1)
-                                              .toUpperCase()
-                                          : 'C',
-                                      style: TextStyle(
-                                        color: theme.colorScheme.primary,
-                                        fontWeight: FontWeight.bold,
+                              onTap: () {
+                                Navigator.pushNamed(context, '/user_chat',
+                                    arguments: {
+                                      'title': chat['name'],
+                                      'chatId': chat['id'],
+                                    });
+                              },
+                              child: ListTile(
+                                contentPadding: EdgeInsets.symmetric(
+                                    horizontal: hPad, vertical: 8),
+                                leading: CircleAvatar(
+                                  backgroundColor: theme.colorScheme.primary
+                                      .withOpacity(0.15),
+                                  child: Text(
+                                    chat['name'].toString().isNotEmpty
+                                        ? chat['name']
+                                            .toString()
+                                            .substring(0, 1)
+                                            .toUpperCase()
+                                        : 'C',
+                                    style: TextStyle(
+                                      color: theme.colorScheme.primary,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                title: Text(
+                                  chat['name'],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'Poppins',
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                subtitle: Text(
+                                  chat['lastMessage'],
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      ChatDateUtils.formatLastMessageTime(
+                                          chat['timestamp']),
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.grey,
                                       ),
                                     ),
-                                  ),
-                                  title: Text(
-                                    chat['name'],
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      fontFamily: 'Poppins',
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 16,
-                                    ),
-                                  ),
-                                  subtitle: Text(
-                                    chat['lastMessage'],
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Text(
-                                        ChatDateUtils.formatLastMessageTime(
-                                            chat['timestamp']),
+                                    Container(
+                                      margin: const EdgeInsets.only(top: 6),
+                                      width: badgeSize,
+                                      height: badgeSize,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: Colors.green,
+                                      ),
+                                      child: Text(
+                                        '$unreadCount',
                                         style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
-                                        ),
+                                            color: Colors.white,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold),
                                       ),
-                                      // Ensure unread is treated as an int and > 0
-                                      if (((chat['unread'] ?? 0) is num
-                                              ? (chat['unread'] ?? 0).toInt()
-                                              : int.tryParse(chat['unread']
-                                                          ?.toString() ??
-                                                      '0') ??
-                                                  0) >
-                                          0)
-                                        Container(
-                                          margin: const EdgeInsets.only(top: 6),
-                                          width: badgeSize,
-                                          height: badgeSize,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.green,
-                                          ),
-                                          child: Text(
-                                            '${((chat['unread'] ?? 0) is num ? (chat['unread'] ?? 0).toInt() : int.tryParse(chat['unread']?.toString() ?? '0') ?? 0)}',
-                                            style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                )),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
                           );
                         },
                       );

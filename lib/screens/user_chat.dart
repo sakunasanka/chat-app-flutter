@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chat_app_flutter/services/crud_services.dart';
@@ -14,12 +15,14 @@ class UserChat extends StatefulWidget {
 
 class _UserChatState extends State<UserChat> {
   final TextEditingController _controller = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   String? chatTitle;
   String? chatId; // persistent chat id
   String? sessionId; // ephemeral session id
   bool isEphemeral = false;
   String? myUserId;
   bool _ended = false;
+  Timer? _markReadDebounce;
 
   @override
   void didChangeDependencies() {
@@ -44,7 +47,6 @@ class _UserChatState extends State<UserChat> {
 
   Future<void> _markMessagesAsReadWhenOpened() async {
     if (!isEphemeral && chatId != null && myUserId != null) {
-      await Future.delayed(const Duration(milliseconds: 500));
       final crud = CrudServices();
       await crud.markMessagesAsRead(
         chatId: chatId!,
@@ -60,6 +62,18 @@ class _UserChatState extends State<UserChat> {
     });
     // Mark messages as read after getting user ID
     _markMessagesAsReadWhenOpened();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   Future<void> _sendMessage() async {
@@ -81,6 +95,8 @@ class _UserChatState extends State<UserChat> {
           text: text,
         );
       }
+      // Scroll to bottom after sending message
+      _scrollToBottom();
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -104,16 +120,18 @@ class _UserChatState extends State<UserChat> {
       CrudServices().deleteEphemeralSession(sessionId!);
       _ended = true;
     }
+    _markReadDebounce?.cancel();
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   Widget _buildMessageStatusIcon(Map<String, dynamic> messageData) {
     final status = messageData['status'] as String? ?? 'sent';
     final messageId = messageData['id'] as String? ?? 'unknown';
-    
+
     print('DEBUG: Message $messageId has status: $status'); // Debug logging
-    
+
     switch (status) {
       case 'sent':
         return Icon(
@@ -131,7 +149,7 @@ class _UserChatState extends State<UserChat> {
         return Icon(
           Icons.done_all,
           size: 14,
-          color: Colors.blue.withOpacity(0.8), // Blue color for read status
+          color: Colors.white.withOpacity(0.7), // Blue color for read status
         );
       default:
         return Icon(
@@ -210,7 +228,44 @@ class _UserChatState extends State<UserChat> {
                           : null,
                   builder: (context, snapshot) {
                     final docs = snapshot.data?.docs ?? [];
+
+                    // Auto-mark any received (non-read) messages as read while this screen is open
+                    if (!isEphemeral && chatId != null && myUserId != null) {
+                      final hasUnreadFromOthers = docs.any((d) {
+                        final m = d.data();
+                        final from = (m['from'] as String?) ?? '';
+                        final status = (m['status'] as String?) ?? 'sent';
+                        return from != myUserId &&
+                            (status == 'sent' || status == 'delivered');
+                      });
+                      if (hasUnreadFromOthers) {
+                        _markReadDebounce?.cancel();
+                        _markReadDebounce =
+                            Timer(const Duration(milliseconds: 250), () async {
+                          if (!mounted) return;
+                          await CrudServices().markMessagesAsRead(
+                            chatId: chatId!,
+                            currentUserId: myUserId!,
+                          );
+                        });
+                      }
+                    }
+
+                    // Auto-scroll to bottom when new messages arrive or when first loading
+                    if (docs.isNotEmpty) {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (_scrollController.hasClients) {
+                          _scrollController.animateTo(
+                            _scrollController.position.maxScrollExtent,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                          );
+                        }
+                      });
+                    }
+
                     return ListView.builder(
+                      controller: _scrollController,
                       padding: const EdgeInsets.all(16),
                       itemCount: docs.length,
                       itemBuilder: (context, index) {
@@ -324,7 +379,8 @@ class _UserChatState extends State<UserChat> {
                                                   if (isMe)
                                                     const SizedBox(width: 4),
                                                   if (isMe)
-                                                    _buildMessageStatusIcon(data),
+                                                    _buildMessageStatusIcon(
+                                                        data),
                                                 ],
                                               ),
                                             ],

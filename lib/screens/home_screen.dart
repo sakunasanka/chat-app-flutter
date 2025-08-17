@@ -17,6 +17,7 @@ class _MyHomePageState extends State<MyHomePage> {
   final TextEditingController _nameController = TextEditingController();
   String? _userName;
   String? _userId; // persisted Firestore user id
+  int _unreadCount = 0;
 
   @override
   void initState() {
@@ -26,6 +27,8 @@ class _MyHomePageState extends State<MyHomePage> {
       await _loadSavedName();
       if (_userName == null || _userName!.isEmpty) {
         await _showNameDialog();
+      } else {
+        await _loadUnreadCount();
       }
     });
   }
@@ -195,12 +198,29 @@ class _MyHomePageState extends State<MyHomePage> {
         if (generatedId != null) {
           _userId = generatedId;
           await prefs.setString('user_id', generatedId);
+          await _loadUnreadCount(); // Load unread count after user ID is set
         } else {
           print('Failed to create user in Firestore');
         }
       }
     } catch (e) {
       print('Error persisting name: $e');
+    }
+  }
+
+  Future<void> _loadUnreadCount() async {
+    if (_userId != null && _userId!.isNotEmpty) {
+      try {
+        final crud = CrudServices();
+        final count = await crud.getTotalUnreadMessagesCount(_userId!);
+        if (mounted) {
+          setState(() {
+            _unreadCount = count;
+          });
+        }
+      } catch (e) {
+        print('Error loading unread count: $e');
+      }
     }
   }
 
@@ -244,6 +264,114 @@ class _MyHomePageState extends State<MyHomePage> {
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: [
+          // StreamBuilder to listen for real-time unread count updates
+          if (_userId != null && _userId!.isNotEmpty)
+            StreamBuilder<List<Map<String, dynamic>>>(
+              stream: CrudServices().getUserChatsStream(_userId!),
+              builder: (context, snapshot) {
+                // Calculate unread chats count from stream data (number of chats with unread messages)
+                int currentUnreadCount = 0;
+                if (snapshot.hasData) {
+                  for (final chat in snapshot.data!) {
+                    final unreadValue = chat['unread'] ?? 0;
+                    final unreadCount = unreadValue is int
+                        ? unreadValue
+                        : int.tryParse(unreadValue.toString()) ?? 0;
+                    if (unreadCount > 0) {
+                      currentUnreadCount++;
+                    }
+                  }
+                }
+
+                // Update state if unread count changed
+                if (currentUnreadCount != _unreadCount) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) {
+                      setState(() {
+                        _unreadCount = currentUnreadCount;
+                      });
+                    }
+                  });
+                }
+
+                return Stack(
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.notifications_outlined),
+                      onPressed: () {
+                        Navigator.pushNamed(context, '/unread_messages');
+                      },
+                    ),
+                    if (currentUnreadCount > 0)
+                      Positioned(
+                        right: 8,
+                        top: 8,
+                        child: Container(
+                          padding: const EdgeInsets.all(2),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          constraints: const BoxConstraints(
+                            minWidth: 16,
+                            minHeight: 16,
+                          ),
+                          child: Text(
+                            currentUnreadCount > 99
+                                ? '99+'
+                                : '$currentUnreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                );
+              },
+            )
+          else
+            Stack(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.notifications_outlined),
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/unread_messages');
+                  },
+                ),
+                if (_unreadCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        _unreadCount > 99 ? '99+' : '$_unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: LayoutBuilder(
         builder: (context, constraints) {
@@ -380,69 +508,6 @@ class _MyHomePageState extends State<MyHomePage> {
                           ),
                           const SizedBox(height: 32),
                           // Test Firebase Connection Button
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(
-                                color: Colors.orange.withOpacity(0.2),
-                              ),
-                            ),
-                            child: Column(
-                              children: [
-                                const Icon(
-                                  Icons.cloud_sync_outlined,
-                                  color: Colors.orange,
-                                  size: 32,
-                                ),
-                                const SizedBox(height: 8),
-                                const Text(
-                                  'Test Connection',
-                                  style: TextStyle(
-                                    fontFamily: 'Poppins',
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.orange,
-                                  ),
-                                ),
-                                const SizedBox(height: 4),
-                                const Text(
-                                  'Verify Firebase connectivity',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                                const SizedBox(height: 12),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: ElevatedButton(
-                                    onPressed: () =>
-                                        testFirebaseConnection(context),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.orange,
-                                      foregroundColor: Colors.white,
-                                      padding: const EdgeInsets.symmetric(
-                                          vertical: 12),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      elevation: 0,
-                                    ),
-                                    child: const Text(
-                                      'Test Firebase',
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontFamily: 'Poppins',
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
                         ],
                       ),
                     ],
