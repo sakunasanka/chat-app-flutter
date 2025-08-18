@@ -1,6 +1,6 @@
 import 'package:chat_app_flutter/screens/chats.dart';
 import 'package:chat_app_flutter/screens/home_screen.dart';
-import 'package:chat_app_flutter/screens/qr_code_scanner.dart';
+import 'package:chat_app_flutter/screens/qr_connect.dart';
 import 'package:chat_app_flutter/services/crud_services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,8 +24,7 @@ class _TabsNavState extends State<TabsNav> {
   final List<Widget> _pages = <Widget>[
     const MyHomePage(title: 'QR Chat'),
     const Chats(),
-    // Placeholder for Connect tab; we'll intercept taps to open scanner
-    const SizedBox.shrink(),
+    const QRCode()
   ];
 
   @override
@@ -209,14 +208,6 @@ class _TabsNavState extends State<TabsNav> {
   }
 
   void _onItemTapped(int index) {
-    if (index == 2) {
-      // Open scanner directly instead of switching page
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => const QRScannerDialogScreen()),
-      );
-      return;
-    }
     setState(() {
       _selectedIndex = index;
     });
