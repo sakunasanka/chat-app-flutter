@@ -1,0 +1,68 @@
+class ChatModel {
+  final String id;
+  final List<String> participants;
+  final List<String> participantNames;
+  final String createdAt;
+  final String lastMessage;
+  final String lastUpdated;
+  final String? lastMessageFrom;
+  final String? unreadRecalcAt;
+
+  ChatModel({
+    required this.id,
+    required this.participants,
+    required this.participantNames,
+    required this.createdAt,
+    required this.lastMessage,
+    required this.lastUpdated,
+    this.lastMessageFrom,
+    this.unreadRecalcAt,
+  });
+
+  factory ChatModel.fromJson(Map<String, dynamic> json, {String? docId}) {
+    return ChatModel(
+      id: docId ?? json['id'] ?? '',
+      participants: List<String>.from(json['participants'] ?? []),
+      participantNames: List<String>.from(json['participantNames'] ?? []),
+      createdAt: json['createdAt'] ?? '',
+      lastMessage: json['lastMessage'] ?? '',
+      lastUpdated: json['lastUpdated'] ?? '',
+      lastMessageFrom: json['lastMessageFrom'],
+      unreadRecalcAt: json['unreadRecalcAt'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'participants': participants,
+      'participantNames': participantNames,
+      'createdAt': createdAt,
+      'lastMessage': lastMessage,
+      'lastUpdated': lastUpdated,
+      if (lastMessageFrom != null) 'lastMessageFrom': lastMessageFrom,
+      if (unreadRecalcAt != null) 'unreadRecalcAt': unreadRecalcAt,
+    };
+  }
+
+  ChatModel copyWith({
+    String? id,
+    List<String>? participants,
+    List<String>? participantNames,
+    String? createdAt,
+    String? lastMessage,
+    String? lastUpdated,
+    String? lastMessageFrom,
+    String? unreadRecalcAt,
+  }) {
+    return ChatModel(
+      id: id ?? this.id,
+      participants: participants ?? this.participants,
+      participantNames: participantNames ?? this.participantNames,
+      createdAt: createdAt ?? this.createdAt,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      lastMessageFrom: lastMessageFrom ?? this.lastMessageFrom,
+      unreadRecalcAt: unreadRecalcAt ?? this.unreadRecalcAt,
+    );
+  }
+}
