@@ -216,10 +216,15 @@ class _QRCodeState extends State<QRCode> {
                                     print(
                                         'DEBUG: instant invite created $inviteId for session $sessionId');
 
-                                    // Do not navigate immediately and avoid persistent popups; tabs will react on acceptance.
+                                    // Do not navigate immediately. Inform the sender and wait for receiver to accept.
                                     if (!mounted) return;
                                     ScaffoldMessenger.of(navigatorContext)
-                                        .hideCurrentSnackBar();
+                                        .showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                            'Instant chat request sent to ${user['name'] ?? userId}. Waiting for acceptance...'),
+                                      ),
+                                    );
                                   } else if (choice == 'request') {
                                     // Keep original invite flow for requesting a persistent chat
                                     final crud = CrudServices();
