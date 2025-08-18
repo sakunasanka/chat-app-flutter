@@ -29,12 +29,36 @@ class MessageService extends BaseCrudService {
       'readAt': null,
     });
 
-    final chatRef = firestore.collection(ChatService.collection).doc(chatId);
-    batch.update(chatRef, {
-      'lastMessage': text,
-      'lastUpdated': now,
-      'lastMessageFrom': fromUserId,
-    });
+    // Get chat participants to unhide the chat for any user who had hidden it
+    final chatDoc =
+        await firestore.collection(ChatService.collection).doc(chatId).get();
+
+    if (chatDoc.exists) {
+      final chatData = chatDoc.data()!;
+      final participants = List<String>.from(chatData['participants'] ?? []);
+      final hiddenForUsers =
+          List<String>.from(chatData['hiddenForUsers'] ?? []);
+
+      // Remove all participants from hiddenForUsers when a new message is sent
+      // This ensures the chat reappears for anyone who had hidden it
+      final updatedHiddenForUsers = hiddenForUsers
+          .where((userId) => !participants.contains(userId))
+          .toList();
+
+      batch.update(firestore.collection(ChatService.collection).doc(chatId), {
+        'lastMessage': text,
+        'lastUpdated': now,
+        'lastMessageFrom': fromUserId,
+        'hiddenForUsers': updatedHiddenForUsers,
+      });
+    } else {
+      // Fallback if chat doesn't exist (shouldn't happen)
+      batch.update(firestore.collection(ChatService.collection).doc(chatId), {
+        'lastMessage': text,
+        'lastUpdated': now,
+        'lastMessageFrom': fromUserId,
+      });
+    }
 
     await commitBatch(batch);
 

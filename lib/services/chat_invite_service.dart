@@ -160,7 +160,11 @@ class ChatInviteService extends BaseCrudService {
       if (!snap.exists) return null;
 
       final data = snap.data()!;
+
+      // If already accepted/declined, return existing result if available
       if (data['status'] != 'pending') {
+        print(
+            'DEBUG: Invite $inviteId already processed with status: ${data['status']}');
         return {
           if (data['chatId'] != null) 'chatId': data['chatId'],
           if (data['ephemeralId'] != null) 'ephemeralId': data['ephemeralId'],
@@ -205,13 +209,27 @@ class ChatInviteService extends BaseCrudService {
         }
       }
 
-      await update(collection, inviteId, {
-        'status': 'accepted',
-        'updatedAt': now,
-        'chatId': chatId,
-        'ephemeralId': ephemeralId,
+      // Use a transaction to ensure atomic update and prevent double-processing
+      await firestore.runTransaction((transaction) async {
+        final currentSnap = await transaction.get(ref);
+        if (!currentSnap.exists) {
+          throw Exception('Invite was deleted during processing');
+        }
+
+        final currentData = currentSnap.data()!;
+        if (currentData['status'] != 'pending') {
+          throw Exception('Invite was already processed during this request');
+        }
+
+        transaction.update(ref, {
+          'status': 'accepted',
+          'updatedAt': now,
+          'chatId': chatId,
+          'ephemeralId': ephemeralId,
+        });
       });
 
+      print('DEBUG: Successfully accepted invite $inviteId');
       return {
         if (chatId != null) 'chatId': chatId,
         if (ephemeralId != null) 'ephemeralId': ephemeralId,
@@ -225,10 +243,29 @@ class ChatInviteService extends BaseCrudService {
   // Decline an invite
   Future<void> declineInvite(String inviteId) async {
     try {
-      await update(collection, inviteId, {
-        'status': 'declined',
-        'updatedAt': DateTime.now().toIso8601String(),
+      final ref = firestore.collection(collection).doc(inviteId);
+
+      // Use a transaction to ensure atomic update and prevent double-processing
+      await firestore.runTransaction((transaction) async {
+        final currentSnap = await transaction.get(ref);
+        if (!currentSnap.exists) {
+          throw Exception('Invite was deleted during processing');
+        }
+
+        final currentData = currentSnap.data()!;
+        if (currentData['status'] != 'pending') {
+          print(
+              'DEBUG: Invite $inviteId already processed with status: ${currentData['status']}');
+          return; // Already processed, nothing to do
+        }
+
+        transaction.update(ref, {
+          'status': 'declined',
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
       });
+
+      print('DEBUG: Successfully declined invite $inviteId');
     } catch (e) {
       print('Error declining invite: $e');
     }

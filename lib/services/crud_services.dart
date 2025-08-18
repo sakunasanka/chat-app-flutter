@@ -248,4 +248,31 @@ class CrudServices {
   Future<int> getTotalUnreadMessagesCount(String userId) async {
     return await _chatService.getTotalUnreadMessagesCount(userId);
   }
+
+  // Hide a chat for the current user (instead of deleting completely)
+  Future<bool> hideChatForUser({
+    required String chatId,
+    required String userId,
+  }) async {
+    return await _chatService.hideChatForUser(
+      chatId: chatId,
+      userId: userId,
+    );
+  }
+
+  // Delete a chat and all its messages
+  Future<bool> deleteChat(String chatId) async {
+    return await _chatService.deleteChat(chatId);
+  }
+
+  // Leave a chat for a user and delete it if all participants have left
+  Future<Map<String, dynamic>> leaveChatForUser({
+    required String chatId,
+    required String userId,
+  }) async {
+    return await _chatService.leaveChatForUser(
+      chatId: chatId,
+      userId: userId,
+    );
+  }
 }

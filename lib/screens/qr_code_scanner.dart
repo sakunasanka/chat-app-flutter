@@ -30,6 +30,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('Invalid QR'),
               content: const Text('Scanned QR code is empty.'),
               actions: [
@@ -64,6 +65,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('Invalid QR'),
               content: const Text('QR code does not contain a valid user id.'),
               actions: [
@@ -104,6 +106,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
             showDialog(
               context: context,
               builder: (c) => const AlertDialog(
+                backgroundColor: Colors.white,
                 title: Text('Error'),
                 content:
                     Text('Failed to start instant chat. Please try again.'),
@@ -127,6 +130,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('Instant chat request sent'),
               content: Text(
                   'Waiting for ${user['name'] ?? userId} to accept your instant chat request.'),
@@ -142,6 +146,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('User not found'),
               content: const Text('No user found for this QR code.'),
               actions: [
@@ -157,6 +162,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
         showDialog(
           context: context,
           builder: (c) => AlertDialog(
+            backgroundColor: Colors.white,
             title: const Text('Scan error'),
             content: Text(e.toString()),
             actions: [

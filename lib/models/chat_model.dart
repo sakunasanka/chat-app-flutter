@@ -7,6 +7,8 @@ class ChatModel {
   final String lastUpdated;
   final String? lastMessageFrom;
   final String? unreadRecalcAt;
+  final List<String>
+      hiddenForUsers; // New field to track users who have hidden this chat
 
   ChatModel({
     required this.id,
@@ -17,6 +19,7 @@ class ChatModel {
     required this.lastUpdated,
     this.lastMessageFrom,
     this.unreadRecalcAt,
+    this.hiddenForUsers = const [], // Default to empty list
   });
 
   factory ChatModel.fromJson(Map<String, dynamic> json, {String? docId}) {
@@ -29,6 +32,7 @@ class ChatModel {
       lastUpdated: json['lastUpdated'] ?? '',
       lastMessageFrom: json['lastMessageFrom'],
       unreadRecalcAt: json['unreadRecalcAt'],
+      hiddenForUsers: List<String>.from(json['hiddenForUsers'] ?? []),
     );
   }
 
@@ -39,6 +43,7 @@ class ChatModel {
       'createdAt': createdAt,
       'lastMessage': lastMessage,
       'lastUpdated': lastUpdated,
+      'hiddenForUsers': hiddenForUsers,
       if (lastMessageFrom != null) 'lastMessageFrom': lastMessageFrom,
       if (unreadRecalcAt != null) 'unreadRecalcAt': unreadRecalcAt,
     };
@@ -53,6 +58,7 @@ class ChatModel {
     String? lastUpdated,
     String? lastMessageFrom,
     String? unreadRecalcAt,
+    List<String>? hiddenForUsers,
   }) {
     return ChatModel(
       id: id ?? this.id,
@@ -63,6 +69,7 @@ class ChatModel {
       lastUpdated: lastUpdated ?? this.lastUpdated,
       lastMessageFrom: lastMessageFrom ?? this.lastMessageFrom,
       unreadRecalcAt: unreadRecalcAt ?? this.unreadRecalcAt,
+      hiddenForUsers: hiddenForUsers ?? this.hiddenForUsers,
     );
   }
 }

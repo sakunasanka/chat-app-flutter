@@ -38,6 +38,7 @@ class ChatService extends BaseCrudService {
         'createdAt': DateTime.now().toIso8601String(),
         'lastMessage': '',
         'lastUpdated': DateTime.now().toIso8601String(),
+        'hiddenForUsers': [], // Initialize as empty list
       });
 
       return chatDoc.id;
@@ -82,7 +83,18 @@ class ChatService extends BaseCrudService {
       print(
           'DEBUG: getUserChatsStream received ${snap.docs.length} chat documents');
 
-      final chats = snap.docs.map((d) => {'id': d.id, ...(d.data())}).toList();
+      // Filter out chats that are hidden for this user
+      final visibleChats = snap.docs.where((d) {
+        final data = d.data();
+        final hiddenForUsers = List<String>.from(data['hiddenForUsers'] ?? []);
+        return !hiddenForUsers.contains(userId);
+      }).toList();
+
+      final chats =
+          visibleChats.map((d) => {'id': d.id, ...(d.data())}).toList();
+
+      print(
+          'DEBUG: Showing ${chats.length} visible chats (${snap.docs.length - chats.length} hidden)');
 
       // Sort in memory by lastUpdated
       chats.sort((a, b) {
@@ -227,6 +239,197 @@ class ChatService extends BaseCrudService {
       });
     } catch (e) {
       print('Error touching chat for refresh: $e');
+    }
+  }
+
+  // Hide a chat for a specific user (instead of deleting completely)
+  Future<bool> hideChatForUser({
+    required String chatId,
+    required String userId,
+  }) async {
+    try {
+      // Get the current chat document
+      final chatDoc = await firestore.collection(collection).doc(chatId).get();
+
+      if (!chatDoc.exists) {
+        print('Chat $chatId not found');
+        return false;
+      }
+
+      final data = chatDoc.data()!;
+      final hiddenForUsers = List<String>.from(data['hiddenForUsers'] ?? []);
+
+      // Add the user to the hiddenForUsers list if not already there
+      if (!hiddenForUsers.contains(userId)) {
+        hiddenForUsers.add(userId);
+
+        await update(collection, chatId, {
+          'hiddenForUsers': hiddenForUsers,
+        });
+
+        print('Successfully hid chat $chatId for user $userId');
+      } else {
+        print('Chat $chatId already hidden for user $userId');
+      }
+
+      return true;
+    } catch (e) {
+      print('Error hiding chat $chatId for user $userId: $e');
+      return false;
+    }
+  }
+
+  // Unhide a chat for a specific user (when they receive a new message)
+  Future<bool> unhideChatForUser({
+    required String chatId,
+    required String userId,
+  }) async {
+    try {
+      // Get the current chat document
+      final chatDoc = await firestore.collection(collection).doc(chatId).get();
+
+      if (!chatDoc.exists) {
+        print('Chat $chatId not found');
+        return false;
+      }
+
+      final data = chatDoc.data()!;
+      final hiddenForUsers = List<String>.from(data['hiddenForUsers'] ?? []);
+
+      // Remove the user from the hiddenForUsers list if present
+      if (hiddenForUsers.contains(userId)) {
+        hiddenForUsers.remove(userId);
+
+        await update(collection, chatId, {
+          'hiddenForUsers': hiddenForUsers,
+        });
+
+        print('Successfully unhid chat $chatId for user $userId');
+      }
+
+      return true;
+    } catch (e) {
+      print('Error unhiding chat $chatId for user $userId: $e');
+      return false;
+    }
+  }
+
+  // Delete a chat completely (only if both users have hidden it)
+  Future<bool> deleteChat(String chatId) async {
+    try {
+      // Get the current chat document
+      final chatDoc = await firestore.collection(collection).doc(chatId).get();
+
+      if (!chatDoc.exists) {
+        print('Chat $chatId not found');
+        return false;
+      }
+
+      final data = chatDoc.data()!;
+      final participants = List<String>.from(data['participants'] ?? []);
+      final hiddenForUsers = List<String>.from(data['hiddenForUsers'] ?? []);
+
+      // Check if all participants have hidden the chat
+      final allParticipantsHidden = participants
+          .every((participant) => hiddenForUsers.contains(participant));
+
+      if (!allParticipantsHidden) {
+        print(
+            'Cannot delete chat $chatId: not all participants have hidden it');
+        return false;
+      }
+
+      final batch = getBatch();
+
+      // Delete all messages in the chat
+      final messagesSnapshot = await firestore
+          .collection(collection)
+          .doc(chatId)
+          .collection(messagesSubCollection)
+          .get();
+
+      for (final messageDoc in messagesSnapshot.docs) {
+        batch.delete(messageDoc.reference);
+      }
+
+      // Delete the chat document itself
+      final chatRef = firestore.collection(collection).doc(chatId);
+      batch.delete(chatRef);
+
+      // Commit the batch operation
+      await commitBatch(batch);
+
+      print(
+          'Successfully deleted chat $chatId and ${messagesSnapshot.docs.length} messages');
+      return true;
+    } catch (e) {
+      print('Error deleting chat $chatId: $e');
+      return false;
+    }
+  }
+
+  // Leave a chat (hide it for the user) and delete it if all participants have left
+  Future<Map<String, dynamic>> leaveChatForUser({
+    required String chatId,
+    required String userId,
+  }) async {
+    try {
+      // First, hide the chat for this user
+      final hideSuccess = await hideChatForUser(
+        chatId: chatId,
+        userId: userId,
+      );
+
+      if (!hideSuccess) {
+        return {
+          'success': false,
+          'deleted': false,
+          'message': 'Failed to leave chat',
+        };
+      }
+
+      // Check if all participants have now hidden the chat
+      final chatDoc = await firestore.collection(collection).doc(chatId).get();
+      if (!chatDoc.exists) {
+        return {
+          'success': true,
+          'deleted': false,
+          'message': 'Left chat successfully',
+        };
+      }
+
+      final data = chatDoc.data()!;
+      final participants = List<String>.from(data['participants'] ?? []);
+      final hiddenForUsers = List<String>.from(data['hiddenForUsers'] ?? []);
+
+      // Check if all participants have hidden the chat
+      final allParticipantsHidden = participants
+          .every((participant) => hiddenForUsers.contains(participant));
+
+      if (allParticipantsHidden) {
+        // Delete the chat completely
+        final deleteSuccess = await deleteChat(chatId);
+        return {
+          'success': true,
+          'deleted': deleteSuccess,
+          'message': deleteSuccess
+              ? 'Chat deleted completely as all participants have left'
+              : 'Left chat successfully',
+        };
+      }
+
+      return {
+        'success': true,
+        'deleted': false,
+        'message': 'Left chat successfully',
+      };
+    } catch (e) {
+      print('Error leaving chat $chatId for user $userId: $e');
+      return {
+        'success': false,
+        'deleted': false,
+        'message': 'Failed to leave chat',
+      };
     }
   }
 }
