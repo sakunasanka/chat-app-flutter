@@ -125,23 +125,9 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
             ephemeralId: sessionId,
           );
 
-          // 4) Do NOT navigate immediately. Inform the user and wait for receiver to accept.
+          // 4) Do NOT navigate immediately and avoid persistent popups; tabs will react upon acceptance.
           if (!mounted) return;
-          showDialog(
-            context: context,
-            builder: (c) => AlertDialog(
-              backgroundColor: Colors.white,
-              title: const Text('Instant chat request sent'),
-              content: Text(
-                  'Waiting for ${user['name'] ?? userId} to accept your instant chat request.'),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(c).pop(),
-                  child: const Text('OK'),
-                ),
-              ],
-            ),
-          );
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
         } else {
           showDialog(
             context: context,

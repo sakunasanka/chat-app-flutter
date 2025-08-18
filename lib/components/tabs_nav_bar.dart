@@ -1,6 +1,6 @@
 import 'package:chat_app_flutter/screens/chats.dart';
 import 'package:chat_app_flutter/screens/home_screen.dart';
-import 'package:chat_app_flutter/screens/qr_connect.dart';
+import 'package:chat_app_flutter/screens/qr_scanner_screen.dart';
 import 'package:chat_app_flutter/services/crud_services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -24,7 +24,7 @@ class _TabsNavState extends State<TabsNav> {
   final List<Widget> _pages = <Widget>[
     const MyHomePage(title: 'QR Chat'),
     const Chats(),
-    const QRCode()
+    const QrCodeScannerScreen()
   ];
 
   @override

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:chat_app_flutter/services/crud_services.dart';
-import 'qr_connect.dart';
+import 'qr_scanner_screen.dart';
 
 class MyQRPage extends StatefulWidget {
   const MyQRPage({super.key});
@@ -160,7 +160,8 @@ class _MyQRPageState extends State<MyQRPage> {
                           // navigate to scan screen
                           Navigator.push(
                             context,
-                            MaterialPageRoute(builder: (_) => const QRCode()),
+                            MaterialPageRoute(
+                                builder: (_) => const QrCodeScannerScreen()),
                           );
                         },
                       ),
