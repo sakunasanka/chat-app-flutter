@@ -1,11 +1,17 @@
 import 'package:chat_app_flutter/components/tabs_nav_bar.dart';
 import 'package:chat_app_flutter/screens/home_screen.dart';
-import 'package:chat_app_flutter/screens/new_chat.dart';
 import 'package:chat_app_flutter/screens/user_chat.dart';
+import 'package:chat_app_flutter/screens/unread_messages.dart';
 import 'package:flutter/material.dart';
 import 'theme.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
   runApp(const MyApp());
 }
 
@@ -22,10 +28,18 @@ class MyApp extends StatelessWidget {
       home: const TabsNav(),
       routes: <String, WidgetBuilder>{
         '/home': (context) => const MyHomePage(title: 'QR Chat'),
-        '/new_chat': (context) => const NewChat(),
         '/chats': (context) => const TabsNav(initialIndex: 1),
-        '/user_chat': (context) => UserChat(
-            title: ModalRoute.of(context)!.settings.arguments as String)
+        '/unread_messages': (context) => const UnreadMessages(),
+        '/user_chat': (context) {
+          final arguments = ModalRoute.of(context)!.settings.arguments;
+          if (arguments is Map<String, dynamic>) {
+            return UserChat(title: arguments['title'] as String? ?? '');
+          } else if (arguments is String) {
+            return UserChat(title: arguments);
+          } else {
+            return const UserChat(title: 'Chat');
+          }
+        },
       },
     );
   }

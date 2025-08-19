@@ -1,7 +1,10 @@
 import 'package:chat_app_flutter/screens/chats.dart';
 import 'package:chat_app_flutter/screens/home_screen.dart';
 import 'package:chat_app_flutter/screens/qr_connect.dart';
+import 'package:chat_app_flutter/services/crud_services.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:async';
 
 class TabsNav extends StatefulWidget {
   final int initialIndex;
@@ -12,6 +15,11 @@ class TabsNav extends StatefulWidget {
 
 class _TabsNavState extends State<TabsNav> {
   int _selectedIndex = 0;
+  Timer? _notificationTimer;
+  // Track incoming invites we already processed locally to avoid repeat popups
+  final Set<String> _handledIncomingInvites = {};
+  // Track when invites were handled to allow cleanup
+  final Map<String, DateTime> _handledIncomingInvitesTime = {};
 
   final List<Widget> _pages = <Widget>[
     const MyHomePage(title: 'QR Chat'),
@@ -23,6 +31,180 @@ class _TabsNavState extends State<TabsNav> {
   void initState() {
     super.initState();
     _selectedIndex = widget.initialIndex;
+    _initUserAndStartTimer();
+  }
+
+  @override
+  void dispose() {
+    _notificationTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _initUserAndStartTimer() async {
+    final prefs = await SharedPreferences.getInstance();
+    final uid = prefs.getString('user_id');
+    if (uid != null && uid.isNotEmpty) {
+      _startNotificationTimer(uid);
+    }
+  }
+
+  void _startNotificationTimer(String uid) {
+    // Check for incoming invites & outgoing responses every 3 seconds
+    _notificationTimer = Timer.periodic(const Duration(seconds: 3), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      _cleanupOldHandledInvites();
+      _checkIncomingInvites(uid);
+      _checkOutgoingResponses(uid);
+    });
+  }
+
+  // Clean up old handled invites (older than 5 minutes) to prevent memory leaks
+  void _cleanupOldHandledInvites() {
+    final now = DateTime.now();
+    final toRemove = <String>[];
+
+    for (final entry in _handledIncomingInvitesTime.entries) {
+      if (now.difference(entry.value).inMinutes > 5) {
+        toRemove.add(entry.key);
+      }
+    }
+
+    for (final inviteId in toRemove) {
+      _handledIncomingInvites.remove(inviteId);
+      _handledIncomingInvitesTime.remove(inviteId);
+    }
+  }
+
+  // Incoming invites (receiver needs to accept/decline)
+  Future<void> _checkIncomingInvites(String uid) async {
+    final crud = CrudServices();
+    final invites = await crud.getPendingInvitesForUser(uid);
+
+    for (final invite in invites) {
+      final inviteId = invite['id'] as String? ?? '';
+      if (inviteId.isEmpty) continue;
+
+      // Skip invites we've already handled locally (prevents re-showing while
+      // Firestore updates propagate)
+      if (_handledIncomingInvites.contains(inviteId)) continue;
+
+      if (!mounted) return;
+
+      // Re-fetch invite to ensure it's still pending (avoid race where
+      // accept/decline already processed remotely but hasn't disappeared from
+      // the pending list due to eventual consistency)
+      final fresh = await crud.getInviteById(inviteId);
+      if (fresh == null) {
+        _handledIncomingInvites.add(inviteId);
+        _handledIncomingInvitesTime[inviteId] = DateTime.now();
+        continue;
+      }
+
+      final status = fresh['status'] as String? ?? 'pending';
+      if (status != 'pending') {
+        _handledIncomingInvites.add(inviteId);
+        _handledIncomingInvitesTime[inviteId] = DateTime.now();
+        continue;
+      }
+
+      // Mark as handled immediately to prevent duplicate dialogs
+      _handledIncomingInvites.add(inviteId);
+      _handledIncomingInvitesTime[inviteId] = DateTime.now();
+
+      final fromName = invite['fromName'] ?? invite['from'];
+      final type = invite['type'] ?? 'instant';
+
+      final accept = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (c) => AlertDialog(
+          backgroundColor: Colors.white,
+          title: Text(
+              'Chat request (${type == 'continue' ? 'Continue' : 'Instant'})'),
+          content: Text(
+              '$fromName wants to ${type == 'continue' ? 'continue a chat with you' : 'start an instant chat with you'}. Do you accept?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(false),
+              child: const Text('Decline'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(c).pop(true),
+              child: const Text('Accept'),
+            ),
+          ],
+        ),
+      );
+
+      if (accept == true) {
+        final res = await crud.acceptInvite(inviteId);
+        if (!mounted) return;
+        if (res != null) {
+          final chatId = res['chatId'];
+          final ephemeralId = res['ephemeralId'];
+          // Navigate the receiver immediately
+          if (chatId != null) {
+            Navigator.pushNamed(context, '/user_chat', arguments: {
+              'title': fromName,
+              'chatId': chatId,
+              'ephemeral': false,
+            });
+          } else if (ephemeralId != null) {
+            Navigator.pushNamed(context, '/user_chat', arguments: {
+              'title': fromName,
+              'sessionId': ephemeralId,
+              'ephemeral': true,
+            });
+          }
+        }
+      } else if (accept == false) {
+        await crud.declineInvite(inviteId);
+      }
+      // Note: invite is already marked as handled above, before showing dialog
+    }
+  }
+
+  // Outgoing responses (notify the sender about accepted/declined and navigate)
+  Future<void> _checkOutgoingResponses(String uid) async {
+    final crud = CrudServices();
+    final responses = await crud.getOutgoingInviteResponses(uid);
+    for (final inv in responses) {
+      final status = inv['status'];
+      final toName = inv['toName'] ?? inv['to'];
+      final inviteId = inv['id'] as String;
+      // type is available via inv['type'] if needed in the future
+      if (status == 'accepted') {
+        final chatId = inv['chatId'];
+        final ephemeralId = inv['ephemeralId'];
+        if (!mounted) return;
+        // Navigate sender
+        if (chatId != null) {
+          Navigator.pushNamed(context, '/user_chat', arguments: {
+            'title': toName,
+            'chatId': chatId,
+            'ephemeral': false,
+          });
+        } else if (ephemeralId != null) {
+          Navigator.pushNamed(context, '/user_chat', arguments: {
+            'title': toName,
+            'sessionId': ephemeralId,
+            'ephemeral': true,
+          });
+        }
+        // Mark notified
+        await crud.markInviteNotifiedForFrom(inviteId);
+      } else if (status == 'declined') {
+        if (!mounted) return;
+        // Inform sender that invite was declined
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Your chat request was declined by $toName')),
+        );
+        await crud.markInviteNotifiedForFrom(inviteId);
+      }
+    }
   }
 
   void _onItemTapped(int index) {
