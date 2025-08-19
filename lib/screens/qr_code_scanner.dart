@@ -30,6 +30,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('Invalid QR'),
               content: const Text('Scanned QR code is empty.'),
               actions: [
@@ -64,6 +65,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('Invalid QR'),
               content: const Text('QR code does not contain a valid user id.'),
               actions: [
@@ -84,11 +86,42 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           // 1) Resolve current user info
           String fromId = 'local_user';
           String fromName = '';
+          bool createdNewUid = false;
           try {
             final prefs = await SharedPreferences.getInstance();
-            final uid = prefs.getString('user_id');
-            final uname = prefs.getString('user_name');
-            if (uid != null && uid.isNotEmpty) fromId = uid;
+            String? uid = prefs.getString('user_id');
+            String? uname = prefs.getString('user_name');
+            if ((uid == null || uid.isEmpty)) {
+              if (uname != null && uname.isNotEmpty) {
+                final createdId = await crud.insertUserAuto(name: uname);
+                if (createdId != null) {
+                  await prefs.setString('user_id', createdId);
+                  uid = createdId;
+                  createdNewUid = true;
+                }
+              }
+            }
+            if (uid == null || uid.isEmpty) {
+              // Abort and inform user to set a name first
+              if (mounted) {
+                showDialog(
+                  context: context,
+                  builder: (c) => AlertDialog(
+                    backgroundColor: Colors.white,
+                    title: const Text('Set up your profile'),
+                    content: const Text(
+                        'Please set your name first so others can chat with you.'),
+                    actions: [
+                      TextButton(
+                          onPressed: () => Navigator.of(c).pop(),
+                          child: const Text('OK')),
+                    ],
+                  ),
+                );
+              }
+              return;
+            }
+            fromId = uid;
             if (uname != null) fromName = uname;
           } catch (_) {}
 
@@ -104,6 +137,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
             showDialog(
               context: context,
               builder: (c) => const AlertDialog(
+                backgroundColor: Colors.white,
                 title: Text('Error'),
                 content:
                     Text('Failed to start instant chat. Please try again.'),
@@ -127,6 +161,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('Instant chat request sent'),
               content: Text(
                   'Waiting for ${user['name'] ?? userId} to accept your instant chat request.'),
@@ -138,10 +173,15 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
               ],
             ),
           );
+          if (createdNewUid && mounted) {
+            // Ensure app shells are refreshed and timers started for new uid
+            Navigator.pushNamed(context, '/chats');
+          }
         } else {
           showDialog(
             context: context,
             builder: (c) => AlertDialog(
+              backgroundColor: Colors.white,
               title: const Text('User not found'),
               content: const Text('No user found for this QR code.'),
               actions: [
@@ -157,6 +197,7 @@ class _QRScannerDialogScreenState extends State<QRScannerDialogScreen> {
         showDialog(
           context: context,
           builder: (c) => AlertDialog(
+            backgroundColor: Colors.white,
             title: const Text('Scan error'),
             content: Text(e.toString()),
             actions: [

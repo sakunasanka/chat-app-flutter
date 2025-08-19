@@ -29,6 +29,115 @@ class _ChatsState extends State<Chats> {
     });
   }
 
+  Future<void> _showLeaveDialog(Map<String, dynamic> chat) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          backgroundColor: Colors.white,
+          title: const Text(
+            'Leave Chat',
+            style: TextStyle(
+              fontFamily: 'Poppins',
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          content: Text(
+            'Are you sure you want to leave your chat with ${chat['name']}?\n\nIf both participants leave, the chat will be permanently deleted.',
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              style: TextButton.styleFrom(
+                foregroundColor: Colors.red,
+              ),
+              child: const Text(
+                'Leave',
+                style: TextStyle(
+                  fontFamily: 'Poppins',
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed == true && currentUserId != null) {
+      await _leaveChat(chat);
+    }
+  }
+
+  Future<void> _leaveChat(Map<String, dynamic> chat) async {
+    if (!mounted) return;
+
+    // Show loading indicator
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Leaving chat...',
+          style: TextStyle(
+            fontFamily: 'Poppins',
+          ),
+        ),
+        duration: Duration(seconds: 1),
+      ),
+    );
+
+    // Leave the chat
+    final result = await crud.leaveChatForUser(
+      chatId: chat['id'],
+      userId: currentUserId!,
+    );
+
+    // Check if widget is still mounted before using context
+    if (!mounted) return;
+
+    if (result['success'] == true) {
+      final wasDeleted = result['deleted'] == true;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            wasDeleted
+                ? 'Chat with ${chat['name']} was permanently deleted'
+                : 'Left chat with ${chat['name']}',
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+            ),
+          ),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            result['message'] ?? 'Failed to leave chat. Please try again.',
+            style: const TextStyle(
+              fontFamily: 'Poppins',
+            ),
+          ),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -200,43 +309,87 @@ class _ChatsState extends State<Chats> {
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  trailing: Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                  trailing: Row(
+                                    mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Text(
-                                        ChatDateUtils.formatLastMessageTime(
-                                            chat['timestamp']),
-                                        style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Colors.grey,
+                                      Column(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Text(
+                                            ChatDateUtils.formatLastMessageTime(
+                                                chat['timestamp']),
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                          // Ensure unread is treated as an int and > 0
+                                          if (((chat['unread'] ?? 0) is num
+                                                  ? (chat['unread'] ?? 0)
+                                                      .toInt()
+                                                  : int.tryParse(chat['unread']
+                                                              ?.toString() ??
+                                                          '0') ??
+                                                      0) >
+                                              0)
+                                            Container(
+                                              margin:
+                                                  const EdgeInsets.only(top: 6),
+                                              width: badgeSize,
+                                              height: badgeSize,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                color: Colors.green,
+                                              ),
+                                              child: Text(
+                                                '${((chat['unread'] ?? 0) is num ? (chat['unread'] ?? 0).toInt() : int.tryParse(chat['unread']?.toString() ?? '0') ?? 0)}',
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight:
+                                                        FontWeight.bold),
+                                              ),
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(width: 8),
+                                      PopupMenuButton<String>(
+                                        onSelected: (value) async {
+                                          if (value == 'leave') {
+                                            await _showLeaveDialog(chat);
+                                          }
+                                        },
+                                        itemBuilder: (BuildContext context) => [
+                                          PopupMenuItem<String>(
+                                            value: 'leave',
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  Icons.exit_to_app,
+                                                  color: Colors.red,
+                                                  size: 20,
+                                                ),
+                                                const SizedBox(width: 12),
+                                                Text(
+                                                  'Leave Chat',
+                                                  style: TextStyle(
+                                                    fontFamily: 'Poppins',
+                                                    color: Colors.red,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                        icon: Icon(
+                                          Icons.more_vert,
+                                          color: Colors.grey[600],
                                         ),
                                       ),
-                                      // Ensure unread is treated as an int and > 0
-                                      if (((chat['unread'] ?? 0) is num
-                                              ? (chat['unread'] ?? 0).toInt()
-                                              : int.tryParse(chat['unread']
-                                                          ?.toString() ??
-                                                      '0') ??
-                                                  0) >
-                                          0)
-                                        Container(
-                                          margin: const EdgeInsets.only(top: 6),
-                                          width: badgeSize,
-                                          height: badgeSize,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            shape: BoxShape.circle,
-                                            color: Colors.green,
-                                          ),
-                                          child: Text(
-                                            '${((chat['unread'] ?? 0) is num ? (chat['unread'] ?? 0).toInt() : int.tryParse(chat['unread']?.toString() ?? '0') ?? 0)}',
-                                            style: const TextStyle(
-                                                color: Colors.white,
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold),
-                                          ),
-                                        ),
                                     ],
                                   ),
                                 )),

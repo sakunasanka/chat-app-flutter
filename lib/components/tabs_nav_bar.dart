@@ -18,6 +18,8 @@ class _TabsNavState extends State<TabsNav> {
   Timer? _notificationTimer;
   // Track incoming invites we already processed locally to avoid repeat popups
   final Set<String> _handledIncomingInvites = {};
+  // Track when invites were handled to allow cleanup
+  final Map<String, DateTime> _handledIncomingInvitesTime = {};
 
   final List<Widget> _pages = <Widget>[
     const MyHomePage(title: 'QR Chat'),
@@ -53,9 +55,27 @@ class _TabsNavState extends State<TabsNav> {
         timer.cancel();
         return;
       }
+      _cleanupOldHandledInvites();
       _checkIncomingInvites(uid);
       _checkOutgoingResponses(uid);
     });
+  }
+
+  // Clean up old handled invites (older than 5 minutes) to prevent memory leaks
+  void _cleanupOldHandledInvites() {
+    final now = DateTime.now();
+    final toRemove = <String>[];
+
+    for (final entry in _handledIncomingInvitesTime.entries) {
+      if (now.difference(entry.value).inMinutes > 5) {
+        toRemove.add(entry.key);
+      }
+    }
+
+    for (final inviteId in toRemove) {
+      _handledIncomingInvites.remove(inviteId);
+      _handledIncomingInvitesTime.remove(inviteId);
+    }
   }
 
   // Incoming invites (receiver needs to accept/decline)
@@ -66,23 +86,34 @@ class _TabsNavState extends State<TabsNav> {
     for (final invite in invites) {
       final inviteId = invite['id'] as String? ?? '';
       if (inviteId.isEmpty) continue;
-      // skip invites we've already handled locally (prevents re-showing while
+
+      // Skip invites we've already handled locally (prevents re-showing while
       // Firestore updates propagate)
       if (_handledIncomingInvites.contains(inviteId)) continue;
+
       if (!mounted) return;
+
       // Re-fetch invite to ensure it's still pending (avoid race where
       // accept/decline already processed remotely but hasn't disappeared from
       // the pending list due to eventual consistency)
       final fresh = await crud.getInviteById(inviteId);
       if (fresh == null) {
         _handledIncomingInvites.add(inviteId);
+        _handledIncomingInvitesTime[inviteId] = DateTime.now();
         continue;
       }
+
       final status = fresh['status'] as String? ?? 'pending';
       if (status != 'pending') {
         _handledIncomingInvites.add(inviteId);
+        _handledIncomingInvitesTime[inviteId] = DateTime.now();
         continue;
       }
+
+      // Mark as handled immediately to prevent duplicate dialogs
+      _handledIncomingInvites.add(inviteId);
+      _handledIncomingInvitesTime[inviteId] = DateTime.now();
+
       final fromName = invite['fromName'] ?? invite['from'];
       final type = invite['type'] ?? 'instant';
 
@@ -129,13 +160,10 @@ class _TabsNavState extends State<TabsNav> {
             });
           }
         }
-        // mark handled locally so timer won't pop it again immediately
-        _handledIncomingInvites.add(inviteId);
-      } else {
+      } else if (accept == false) {
         await crud.declineInvite(inviteId);
-        // mark handled locally so timer won't pop it again immediately
-        _handledIncomingInvites.add(inviteId);
       }
+      // Note: invite is already marked as handled above, before showing dialog
     }
   }
 

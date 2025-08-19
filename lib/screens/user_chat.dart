@@ -81,17 +81,28 @@ class _UserChatState extends State<UserChat> {
     if (text.isEmpty) return;
     _controller.clear();
     final crud = CrudServices();
+    // Prevent sending with placeholder id which can cause one-sided chats
+    if ((myUserId == null || myUserId == 'local_user')) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Please set your name in the home screen first.'),
+          ),
+        );
+      }
+      return;
+    }
     try {
       if (isEphemeral && sessionId != null) {
         await crud.sendEphemeralMessage(
           sessionId: sessionId!,
-          fromUserId: myUserId ?? 'local_user',
+          fromUserId: myUserId!,
           text: text,
         );
       } else if (!isEphemeral && chatId != null) {
         await crud.sendPersistentMessage(
           chatId: chatId!,
-          fromUserId: myUserId ?? 'local_user',
+          fromUserId: myUserId!,
           text: text,
         );
       }

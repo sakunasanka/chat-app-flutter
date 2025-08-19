@@ -45,7 +45,7 @@ class _QRCodeState extends State<QRCode> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               InkWell(
-                onTap: () {
+                onTap: () async {
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -70,6 +70,7 @@ class _QRCodeState extends State<QRCode> {
                                   showDialog(
                                     context: navigatorContext,
                                     builder: (c) => AlertDialog(
+                                      backgroundColor: Colors.white,
                                       title: const Text('Invalid QR'),
                                       content: const Text(
                                           'Scanned QR code is empty.'),
@@ -111,6 +112,7 @@ class _QRCodeState extends State<QRCode> {
                                   showDialog(
                                     context: navigatorContext,
                                     builder: (c) => AlertDialog(
+                                      backgroundColor: Colors.white,
                                       title: const Text('Invalid QR'),
                                       content: const Text(
                                           'QR code does not contain a valid user id.'),
@@ -166,14 +168,48 @@ class _QRCodeState extends State<QRCode> {
                                     // Get current user info
                                     String fromId = 'local_user';
                                     String fromName = '';
+                                    bool createdNewUid = false;
                                     try {
                                       final prefs =
                                           await SharedPreferences.getInstance();
-                                      final uid = prefs.getString('user_id');
-                                      final uname =
+                                      String? uid = prefs.getString('user_id');
+                                      String? uname =
                                           prefs.getString('user_name');
-                                      if (uid != null && uid.isNotEmpty)
-                                        fromId = uid;
+                                      if ((uid == null || uid.isEmpty)) {
+                                        // Try to auto-create a user if we have a name
+                                        if (uname != null && uname.isNotEmpty) {
+                                          final createdId = await crud
+                                              .insertUserAuto(name: uname);
+                                          if (createdId != null) {
+                                            await prefs.setString(
+                                                'user_id', createdId);
+                                            uid = createdId;
+                                            createdNewUid = true;
+                                          }
+                                        }
+                                      }
+                                      if (uid == null || uid.isEmpty) {
+                                        if (!mounted) return;
+                                        await showDialog(
+                                          context: navigatorContext,
+                                          builder: (c) => AlertDialog(
+                                            backgroundColor: Colors.white,
+                                            title: const Text(
+                                                'Set up your profile'),
+                                            content: const Text(
+                                                'Please set your name first so others can chat with you.'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.of(c).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        return; // Abort flow until user id exists
+                                      }
+                                      fromId = uid;
                                       if (uname != null) fromName = uname;
                                     } catch (_) {}
 
@@ -191,6 +227,7 @@ class _QRCodeState extends State<QRCode> {
                                       showDialog(
                                         context: navigatorContext,
                                         builder: (c) => const AlertDialog(
+                                          backgroundColor: Colors.white,
                                           title: Text('Error'),
                                           content: Text(
                                               'Failed to start instant chat. Please try again.'),
@@ -222,6 +259,11 @@ class _QRCodeState extends State<QRCode> {
                                             'Instant chat request sent to ${user['name'] ?? userId}. Waiting for acceptance...'),
                                       ),
                                     );
+                                    if (createdNewUid && mounted) {
+                                      // Rebuild app shell so Chats & timers pick up the new user id
+                                      Navigator.pushNamed(
+                                          navigatorContext, '/chats');
+                                    }
                                   } else if (choice == 'request') {
                                     // Keep original invite flow for requesting a persistent chat
                                     final crud = CrudServices();
@@ -229,14 +271,47 @@ class _QRCodeState extends State<QRCode> {
                                     // Get current user info
                                     String fromId = 'local_user';
                                     String fromName = '';
+                                    bool createdNewUid = false;
                                     try {
                                       final prefs =
                                           await SharedPreferences.getInstance();
-                                      final uid = prefs.getString('user_id');
-                                      final uname =
+                                      String? uid = prefs.getString('user_id');
+                                      String? uname =
                                           prefs.getString('user_name');
-                                      if (uid != null && uid.isNotEmpty)
-                                        fromId = uid;
+                                      if ((uid == null || uid.isEmpty)) {
+                                        if (uname != null && uname.isNotEmpty) {
+                                          final createdId = await crud
+                                              .insertUserAuto(name: uname);
+                                          if (createdId != null) {
+                                            await prefs.setString(
+                                                'user_id', createdId);
+                                            uid = createdId;
+                                            createdNewUid = true;
+                                          }
+                                        }
+                                      }
+                                      if (uid == null || uid.isEmpty) {
+                                        if (!mounted) return;
+                                        await showDialog(
+                                          context: navigatorContext,
+                                          builder: (c) => AlertDialog(
+                                            backgroundColor: Colors.white,
+                                            title: const Text(
+                                                'Set up your profile'),
+                                            content: const Text(
+                                                'Please set your name first so your chat can be created.'),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () =>
+                                                    Navigator.of(c).pop(),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      fromId = uid;
                                       if (uname != null) fromName = uname;
                                     } catch (_) {}
 
@@ -258,10 +333,15 @@ class _QRCodeState extends State<QRCode> {
                                               'Chat request sent to ${user['name'] ?? userId}'),
                                         ),
                                       );
+                                      if (createdNewUid && mounted) {
+                                        Navigator.pushNamed(
+                                            navigatorContext, '/chats');
+                                      }
                                     } else {
                                       showDialog(
                                         context: navigatorContext,
                                         builder: (c) => const AlertDialog(
+                                          backgroundColor: Colors.white,
                                           title: Text('Error'),
                                           content: Text(
                                               'Failed to send chat request. Please try again.'),
@@ -273,6 +353,7 @@ class _QRCodeState extends State<QRCode> {
                                   showDialog(
                                     context: navigatorContext,
                                     builder: (c) => AlertDialog(
+                                      backgroundColor: Colors.white,
                                       title: const Text('User not found'),
                                       content: const Text(
                                           'No user found for this QR code.'),
@@ -292,6 +373,7 @@ class _QRCodeState extends State<QRCode> {
                                 showDialog(
                                   context: context,
                                   builder: (c) => AlertDialog(
+                                    backgroundColor: Colors.white,
                                     title: const Text('Scan error'),
                                     content: Text(e.toString()),
                                     actions: [
