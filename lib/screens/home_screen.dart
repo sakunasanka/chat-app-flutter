@@ -107,7 +107,7 @@ class _MyHomePageState extends State<MyHomePage> {
                 onSubmitted: (_) => _trySaveName(),
                 onChanged: (_) => setLocalState(() {}),
                 decoration: InputDecoration(
-                  hintText: 'e.g. John Doe',
+                  hintText: 'e.g. Saman Kumara ',
                   labelText: 'Your Name',
                   filled: true,
                   fillColor: Colors.grey[50],
