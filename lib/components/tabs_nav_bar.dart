@@ -1,7 +1,7 @@
-import 'package:chat_app_flutter/screens/chats.dart';
-import 'package:chat_app_flutter/screens/home_screen.dart';
-import 'package:chat_app_flutter/screens/qr_connect.dart';
-import 'package:chat_app_flutter/services/crud_services.dart';
+import 'package:qr_chat/screens/chats.dart';
+import 'package:qr_chat/screens/home_screen.dart';
+import 'package:qr_chat/screens/qr_connect.dart';
+import 'package:qr_chat/services/crud_services.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';

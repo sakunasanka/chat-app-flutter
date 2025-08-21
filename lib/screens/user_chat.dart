@@ -2,8 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:chat_app_flutter/services/crud_services.dart';
-import 'package:chat_app_flutter/utils/date_utils.dart';
+import 'package:qr_chat/services/crud_services.dart';
+import 'package:qr_chat/utils/date_utils.dart';
 
 class UserChat extends StatefulWidget {
   final String title;

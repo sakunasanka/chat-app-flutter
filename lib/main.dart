@@ -1,7 +1,7 @@
-import 'package:chat_app_flutter/components/tabs_nav_bar.dart';
-import 'package:chat_app_flutter/screens/home_screen.dart';
-import 'package:chat_app_flutter/screens/user_chat.dart';
-import 'package:chat_app_flutter/screens/unread_messages.dart';
+import 'package:qr_chat/components/tabs_nav_bar.dart';
+import 'package:qr_chat/screens/home_screen.dart';
+import 'package:qr_chat/screens/user_chat.dart';
+import 'package:qr_chat/screens/unread_messages.dart';
 import 'package:flutter/material.dart';
 import 'theme.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -23,7 +23,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Flutter Demo',
+      title: 'QR chat',
       theme: appTheme,
       home: const TabsNav(),
       routes: <String, WidgetBuilder>{
