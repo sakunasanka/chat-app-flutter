@@ -46,9 +46,11 @@ class _QRCodeState extends State<QRCode> {
             children: [
               InkWell(
                 onTap: () async {
+                  // Capture the page-level context to use after the dialog is closed
+                  final rootContext = context;
                   showDialog(
-                    context: context,
-                    builder: (context) => AlertDialog(
+                    context: rootContext,
+                    builder: (dialogCtx) => AlertDialog(
                       title: const Text('Scan QR Code'),
                       backgroundColor: Colors.white,
                       content: SizedBox(
@@ -60,15 +62,16 @@ class _QRCodeState extends State<QRCode> {
                             controller = qrController;
                             controller!.scannedDataStream
                                 .listen((scanData) async {
-                              final navigatorContext = context;
+                              final dialogContext =
+                                  dialogCtx; // dialog context for popping
                               final code = scanData.code;
                               // Close the dialog and controller after handling
                               try {
                                 if (code == null || code.isEmpty) {
                                   controller?.dispose();
-                                  Navigator.of(navigatorContext).pop();
+                                  Navigator.of(dialogContext).pop();
                                   showDialog(
-                                    context: navigatorContext,
+                                    context: rootContext,
                                     builder: (c) => AlertDialog(
                                       backgroundColor: Colors.white,
                                       title: const Text('Invalid QR'),
@@ -108,9 +111,9 @@ class _QRCodeState extends State<QRCode> {
 
                                 if (userId == null || userId.isEmpty) {
                                   controller?.dispose();
-                                  Navigator.of(navigatorContext).pop();
+                                  Navigator.of(dialogContext).pop();
                                   showDialog(
-                                    context: navigatorContext,
+                                    context: rootContext,
                                     builder: (c) => AlertDialog(
                                       backgroundColor: Colors.white,
                                       title: const Text('Invalid QR'),
@@ -133,12 +136,12 @@ class _QRCodeState extends State<QRCode> {
 
                                 controller?.dispose();
                                 if (!mounted) return;
-                                Navigator.of(navigatorContext).pop();
+                                Navigator.of(dialogContext).pop();
 
                                 if (user != null) {
                                   // Ask whether to create a persistent chat or just an instant chat
                                   final choice = await showDialog<String>(
-                                    context: navigatorContext,
+                                    context: rootContext,
                                     builder: (c) => AlertDialog(
                                       backgroundColor: Colors.white,
                                       title: const Text('Start chat'),
@@ -191,7 +194,7 @@ class _QRCodeState extends State<QRCode> {
                                       if (uid == null || uid.isEmpty) {
                                         if (!mounted) return;
                                         await showDialog(
-                                          context: navigatorContext,
+                                          context: rootContext,
                                           builder: (c) => AlertDialog(
                                             backgroundColor: Colors.white,
                                             title: const Text(
@@ -225,7 +228,7 @@ class _QRCodeState extends State<QRCode> {
                                     if (!mounted) return;
                                     if (sessionId == null) {
                                       showDialog(
-                                        context: navigatorContext,
+                                        context: rootContext,
                                         builder: (c) => const AlertDialog(
                                           backgroundColor: Colors.white,
                                           title: Text('Error'),
@@ -252,7 +255,7 @@ class _QRCodeState extends State<QRCode> {
 
                                     // Do not navigate immediately. Inform the sender and wait for receiver to accept.
                                     if (!mounted) return;
-                                    ScaffoldMessenger.of(navigatorContext)
+                                    ScaffoldMessenger.of(rootContext)
                                         .showSnackBar(
                                       SnackBar(
                                         content: Text(
@@ -262,7 +265,7 @@ class _QRCodeState extends State<QRCode> {
                                     if (createdNewUid && mounted) {
                                       // Rebuild app shell so Chats & timers pick up the new user id
                                       Navigator.pushNamed(
-                                          navigatorContext, '/chats');
+                                          rootContext, '/chats');
                                     }
                                   } else if (choice == 'request') {
                                     // Keep original invite flow for requesting a persistent chat
@@ -293,7 +296,7 @@ class _QRCodeState extends State<QRCode> {
                                       if (uid == null || uid.isEmpty) {
                                         if (!mounted) return;
                                         await showDialog(
-                                          context: navigatorContext,
+                                          context: rootContext,
                                           builder: (c) => AlertDialog(
                                             backgroundColor: Colors.white,
                                             title: const Text(
@@ -326,7 +329,7 @@ class _QRCodeState extends State<QRCode> {
 
                                     if (!mounted) return;
                                     if (inviteId != null) {
-                                      ScaffoldMessenger.of(navigatorContext)
+                                      ScaffoldMessenger.of(rootContext)
                                           .showSnackBar(
                                         SnackBar(
                                           content: Text(
@@ -335,11 +338,11 @@ class _QRCodeState extends State<QRCode> {
                                       );
                                       if (createdNewUid && mounted) {
                                         Navigator.pushNamed(
-                                            navigatorContext, '/chats');
+                                            rootContext, '/chats');
                                       }
                                     } else {
                                       showDialog(
-                                        context: navigatorContext,
+                                        context: rootContext,
                                         builder: (c) => const AlertDialog(
                                           backgroundColor: Colors.white,
                                           title: Text('Error'),
@@ -351,7 +354,7 @@ class _QRCodeState extends State<QRCode> {
                                   }
                                 } else {
                                   showDialog(
-                                    context: navigatorContext,
+                                    context: rootContext,
                                     builder: (c) => AlertDialog(
                                       backgroundColor: Colors.white,
                                       title: const Text('User not found'),
@@ -369,9 +372,9 @@ class _QRCodeState extends State<QRCode> {
                                 }
                               } catch (e) {
                                 controller?.dispose();
-                                if (mounted) Navigator.of(context).pop();
+                                if (mounted) Navigator.of(dialogCtx).pop();
                                 showDialog(
-                                  context: context,
+                                  context: rootContext,
                                   builder: (c) => AlertDialog(
                                     backgroundColor: Colors.white,
                                     title: const Text('Scan error'),
