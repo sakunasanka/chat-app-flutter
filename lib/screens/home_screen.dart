@@ -1,6 +1,6 @@
-import 'package:chat_app_flutter/components/custom_card.dart';
-import 'package:chat_app_flutter/services/crud_services.dart';
-import 'package:chat_app_flutter/screens/my_qr.dart';
+import 'package:qr_chat/components/custom_card.dart';
+import 'package:qr_chat/services/crud_services.dart';
+import 'package:qr_chat/screens/my_qr.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 

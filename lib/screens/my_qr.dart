@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:chat_app_flutter/services/crud_services.dart';
+import 'package:qr_chat/services/crud_services.dart';
 import 'qr_connect.dart';
 
 class MyQRPage extends StatefulWidget {
