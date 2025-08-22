@@ -1,4 +1,4 @@
-# Flutter App Readme
+# QR Chat Readme
 
 This guide provides instructions on how to set up, run, and troubleshoot the Flutter application.
 
